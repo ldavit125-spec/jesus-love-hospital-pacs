@@ -1,0 +1,2 @@
+[pydicom.data.external_sources]
+pydicom-data = data_store:DataStore
