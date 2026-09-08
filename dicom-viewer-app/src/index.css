@@ -156,6 +156,20 @@ body {
   border-color: rgba(239, 68, 68, 0.4);
 }
 
+.stack-indicator-badge {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #38bdf8;
+  padding: 0.5rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: monospace;
+}
+
 .info-overlay {
   position: absolute;
   padding: 1rem;

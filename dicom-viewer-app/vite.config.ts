@@ -23,5 +23,12 @@ export default defineConfig({
   server: {
     host: true,
     port: 5174,
+    proxy: {
+      '/orthanc': {
+        target: 'http://localhost:8042',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/orthanc/, ''),
+      },
+    },
   },
 });

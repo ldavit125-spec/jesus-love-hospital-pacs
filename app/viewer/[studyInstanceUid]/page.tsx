@@ -26,7 +26,6 @@ export default async function ViewerPage({ params }: { params: Promise<{ studyIn
         <div className="brand"><div className="brand-mark"><img src="/jesus-love-hospital-logo.png" alt="예수사랑병원 로고" /></div><div><strong>예수사랑병원</strong><span>JESUS LOVE HOSPITAL</span></div></div>
         <nav aria-label="주 메뉴">
           <p>PACS MENU</p>
-          <Link href="/"><i>▦</i><span>Dashboard</span></Link>
           <Link href="/"><i>▤</i><span>Study List</span></Link>
           <span className="active"><i>◫</i><span>DICOM Viewer</span><b>›</b></span>
           <Link href="/"><i>⚙</i><span>System</span></Link>

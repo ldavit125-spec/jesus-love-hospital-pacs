@@ -36,3 +36,9 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+.npm-cache/
+*.tsbuildinfo
+*.dcm
+*.dcm.gz
+preview_check.png
+start-pacs-dev.cmd
