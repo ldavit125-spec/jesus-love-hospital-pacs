@@ -115,7 +115,7 @@ function initCornerstone() {
   cornerstoneTools.addTool(cornerstoneTools.StackScrollTool);
 
   dicomImageLoader.init({
-    maxWebWorkers: navigator.hardwareConcurrency || 1,
+    maxWebWorkers: 1,
     useLegacyMetadataProvider: true,
   });
 
@@ -247,11 +247,17 @@ export default function App() {
           // 2. Series ID가 전달된 경우
           setStatus(`Orthanc Series (${orthancSeriesId.slice(0, 8)}...) Instance 목록 조회 중...`);
           try {
-            const resp = await fetch(`/orthanc/series/${orthancSeriesId}/instances`);
+            const resp = await fetch(`/orthanc/series/${orthancSeriesId}`);
             if (!resp.ok) {
               throw new Error(`Orthanc series instances 조회 실패: HTTP ${resp.status}`);
             }
-            const instancesData = (await resp.json()) as Array<{
+            const seriesData = (await resp.json()) as { Instances?: string[] };
+            const instanceIds = seriesData.Instances ?? [];
+            const instancesData = await Promise.all(instanceIds.map(async (id) => ({
+              ID: id,
+              MainDicomTags: (await (await fetch(`/orthanc/instances/${id}`)).json()).MainDicomTags,
+            })));
+            const normalizedInstancesData = instancesData as Array<{
                ID: string;
                IndexInSeries?: number;
                MainDicomTags?: {
@@ -260,10 +266,10 @@ export default function App() {
                  Modality?: string;
                };
             }>;
-            fetchedInstances = instancesData;
+            fetchedInstances = normalizedInstancesData;
 
-            if (instancesData && instancesData.length > 0) {
-              const sortedInstances = instancesData
+            if (normalizedInstancesData && normalizedInstancesData.length > 0) {
+              const sortedInstances = normalizedInstancesData
                 .map((inst, index) => {
                   const numStr = inst.MainDicomTags?.InstanceNumber;
                   const parsedNum = numStr ? parseInt(numStr, 10) : NaN;
@@ -297,11 +303,23 @@ export default function App() {
               const studyData = await studyResp.json() as { Series?: string[] };
               const seriesIds = studyData.Series || [];
               for (const sId of seriesIds) {
-                const sResp = await fetch(`/orthanc/series/${sId}/instances`);
+                const sResp = await fetch(`/orthanc/series/${sId}`);
                 if (sResp.ok) {
-                  const insts = await sResp.json() as Array<{ ID: string }>;
-                  insts.forEach((inst) => {
-                    imageIds.push(`wadouri:${window.location.origin}/orthanc/instances/${inst.ID}/file`);
+                  const seriesData = await sResp.json() as { Instances?: string[]; MainDicomTags?: { Modality?: string } };
+                  const studyInstances = await Promise.all((seriesData.Instances ?? []).map(async (instanceId) => {
+                    const instanceResp = await fetch(`/orthanc/instances/${instanceId}`);
+                    const instanceData = instanceResp.ok ? await instanceResp.json() as { ID: string; MainDicomTags?: { Modality?: string } } : { ID: instanceId };
+                    return instanceData;
+                  }));
+                  fetchedInstances.push(...studyInstances.map((instance) => ({
+                    ...instance,
+                    MainDicomTags: {
+                      ...instance.MainDicomTags,
+                      Modality: seriesData.MainDicomTags?.Modality,
+                    },
+                  })));
+                  studyInstances.forEach((instance) => {
+                    imageIds.push(`wadouri:${window.location.origin}/orthanc/instances/${instance.ID}/file`);
                   });
                 }
               }
@@ -355,7 +373,8 @@ export default function App() {
             camera: viewport.getCamera(),
           };
 
-            const dicomModality = fetchedInstances?.[0]?.MainDicomTags?.Modality || (image.photometricInterpretation === 'MONOCHROME1' || image.rows > 1500 ? 'CR' : 'CT');
+            const seriesMetadata = cornerstone.metaData.get('generalSeriesModule', initialImageId) as { modality?: string } | undefined;
+            const dicomModality = fetchedInstances?.[0]?.MainDicomTags?.Modality || seriesMetadata?.modality || (image.photometricInterpretation === 'MONOCHROME1' || image.rows > 1500 ? 'CR' : 'CT');
             const isCR = dicomModality === 'CR' || dicomModality === 'DX' || image.photometricInterpretation === 'MONOCHROME1';
 
             const isUS = dicomModality === 'US';

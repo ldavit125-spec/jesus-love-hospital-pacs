@@ -204,6 +204,62 @@ body {
   text-align: right;
 }
 
+.dicom-details-panel {
+  position: absolute;
+  top: 4.75rem;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 8;
+  width: min(23rem, 34vw);
+  overflow-y: auto;
+  padding: 0.85rem;
+  border: 1px solid rgba(75, 85, 99, 0.8);
+  border-radius: 8px;
+  background: rgba(17, 24, 39, 0.92);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  color: var(--text-main);
+  font-size: 0.75rem;
+  backdrop-filter: blur(8px);
+}
+
+.dicom-details-panel section + section {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(75, 85, 99, 0.65);
+}
+
+.dicom-details-panel h2 {
+  margin-bottom: 0.45rem;
+  color: #93c5fd;
+  font-size: 0.8rem;
+}
+
+.dicom-details-panel dl > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 0.65rem;
+  padding: 0.2rem 0;
+}
+
+.dicom-details-panel dt {
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.dicom-details-panel dd {
+  margin: 0;
+  color: #e5e7eb;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .dicom-details-panel {
+    width: min(20rem, 48vw);
+    font-size: 0.7rem;
+  }
+}
+
 .status-indicator-bar {
   position: absolute;
   bottom: 1rem;
