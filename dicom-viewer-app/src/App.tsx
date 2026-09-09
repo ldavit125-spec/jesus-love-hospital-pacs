@@ -518,6 +518,16 @@ export default function App() {
       ],
     });
 
+    // Keep mouse-wheel stack navigation active while switching the primary tool.
+    // This is especially important for two-frame synthetic C-arm PRE/POST studies.
+    toolGroup.setToolActive(cornerstoneTools.StackScrollTool.toolName, {
+      bindings: [
+        {
+          mouseButton: cornerstoneTools.Enums.MouseBindings.Wheel,
+        },
+      ],
+    });
+
     setActiveTool(tool);
   };
 

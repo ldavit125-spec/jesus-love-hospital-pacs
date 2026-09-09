@@ -49,6 +49,38 @@ function useOrthancList<T>(url: string, field: string) {
 }
 
 export default function StudyDrawer({ study, onClose, onOpenViewer }: StudyDrawerProps) {
+  const displayModality = study.studyDescription === 'Synthetic Cardiac Doppler Ultrasound Demo' && study.patientId === 'DEMO-US-ECHO-001'
+    ? 'US Demo'
+    : study.studyDescription === 'Synthetic Chest X-ray Demo'
+    ? 'CR Demo'
+    : study.studyDescription === 'Synthetic Mammography Demo'
+      ? 'MG Demo'
+      : study.studyDescription === 'Synthetic C-arm Lumbar Procedure Demo' && study.patientId === 'DEMO-CARM-001'
+        ? 'C-arm Demo'
+      : study.modality || '-';
+  const displayEquipment = study.studyDescription === 'Synthetic Cardiac Doppler Ultrasound Demo' && study.patientId === 'DEMO-US-ECHO-001'
+    ? 'US Demo'
+    : study.studyDescription === 'Synthetic Chest X-ray Demo'
+    ? 'CR Demo'
+    : study.studyDescription === 'Synthetic Mammography Demo'
+      ? 'MG Demo'
+      : study.studyDescription === 'Synthetic C-arm Lumbar Procedure Demo' && study.patientId === 'DEMO-CARM-001'
+        ? 'C-arm Demo'
+      : study.stationName || '-';
+  const [reportText, setReportText] = useState('');
+  const [reportSaved, setReportSaved] = useState(false);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(`pacs-report-${study.orthancStudyId}`);
+    setReportText(saved || '');
+    setReportSaved(Boolean(saved));
+  }, [study.orthancStudyId]);
+
+  const saveReport = () => {
+    window.localStorage.setItem(`pacs-report-${study.orthancStudyId}`, reportText);
+    setReportSaved(true);
+  };
+
   const { items: seriesList, loading, error } = useOrthancList<SeriesItem>(
     `/api/orthanc/series?${new URLSearchParams({ studyId: study.orthancStudyId })}`,
     'series'
@@ -102,9 +134,13 @@ export default function StudyDrawer({ study, onClose, onOpenViewer }: StudyDrawe
                 <span className="detail-label">Modality</span>
                 <strong className="detail-value">
                   <span className={`modality ${study.modality ? study.modality.replace('-', '').toLowerCase() : ''}`}>
-                    {study.modality || '-'}
+                    {displayModality}
                   </span>
                 </strong>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label">장비</span>
+                <strong className="detail-value">{displayEquipment}</strong>
               </div>
               <div className="detail-item">
                 <span className="detail-label">Series 수</span>
@@ -115,6 +151,24 @@ export default function StudyDrawer({ study, onClose, onOpenViewer }: StudyDrawe
                 <strong className="detail-value">{loading ? (study.imageCount ? `${study.imageCount}개` : '-') : `${totalInstances || study.imageCount || 0}개`}</strong>
               </div>
             </div>
+          </section>
+
+          <section className="drawer-section">
+            <div className="drawer-section-header">
+              <h3 className="drawer-section-title">판독문</h3>
+              {reportSaved && <span className="detail-label">저장됨</span>}
+            </div>
+            <textarea
+              aria-label="판독문 입력"
+              value={reportText}
+              onChange={(event) => { setReportText(event.target.value); setReportSaved(false); }}
+              placeholder="판독문을 입력하세요."
+              rows={6}
+              style={{ width: '100%', resize: 'vertical', padding: '10px', border: '1px solid #dce4ec', borderRadius: '6px', font: 'inherit' }}
+            />
+            <button type="button" className="viewer-btn" onClick={saveReport} style={{ marginTop: '8px' }}>
+              판독문 저장
+            </button>
           </section>
 
           {/* Series 목록 */}
@@ -137,7 +191,7 @@ export default function StudyDrawer({ study, onClose, onOpenViewer }: StudyDrawe
                       <div className="series-meta">
                         <span className="series-num">Series #{series.seriesNumber || '-'}</span>
                         <span className={`modality ${series.modality ? series.modality.replace('-', '').toLowerCase() : ''}`}>
-                          {series.modality || '-'}
+                          {displayModality}
                         </span>
                         <span className="instance-badge">{series.instanceCount} Instances</span>
                       </div>

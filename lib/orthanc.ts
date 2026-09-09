@@ -116,24 +116,6 @@ export async function getOrthancStudies(): Promise<StudyListItem[]> {
 
   // Ensure required studies are present
   const finalResults = results.slice();
-  // FUJI95714 placeholder
-  if (!finalResults.find((s) => s.accessionNumber === 'FUJI95714')) {
-    finalResults.push({
-      orthancStudyId: 'placeholder-fuji95714',
-      patientId: 'UNKNOWN',
-      patientName: 'UNKNOWN',
-      accessionNumber: 'FUJI95714',
-      studyInstanceUid: 'UNKNOWN',
-      studyDate: '-',
-      studyTime: '-',
-      studyDescription: 'Chest PA',
-      modality: '-',
-      stationName: '-',
-      seriesCount: 0,
-      imageCount: 0,
-      readingStatus: null,
-    });
-  }
   // HCC_004 placeholder (if not already present via UID mapping)
   if (!finalResults.find((s) => s.studyInstanceUid === HCC_004_STUDY_UID)) {
     finalResults.push({

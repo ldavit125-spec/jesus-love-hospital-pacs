@@ -148,7 +148,15 @@ export default function Home() {
     const keyword = query.trim().toLowerCase();
     return orthancStudies.filter((study) => {
       const studyDate = study.studyDate.replaceAll('.', '-');
-      const searchable = [study.patientId, study.patientName, study.accessionNumber, study.studyInstanceUid];
+      const searchable = [
+        study.patientId,
+        study.patientName,
+        study.accessionNumber,
+        study.studyInstanceUid,
+        study.studyDescription,
+        study.modality,
+        study.stationName,
+      ];
       return (!keyword || searchable.some((value) => value.toLowerCase().includes(keyword)))
         && matchesCategory(study, selectedCategory)
         && matchesEquipment(study, selectedCategory, equipment)
@@ -331,7 +339,7 @@ export default function Home() {
                     <td><strong>{s.studyDate}</strong><small>{s.studyTime}</small></td>
                     <td><strong className="accession">{s.accessionNumber}</strong><small>-</small></td>
                     <td><strong>{s.studyDescription}</strong><small>-</small></td>
-                    <td><span className={`modality ${s.modality.replace('-', '').toLowerCase()}`}>{s.modality}</span></td>
+                    <td><span className={`modality ${s.modality.replace('-', '').toLowerCase()}`}>{s.studyDescription === 'Synthetic Chest X-ray Demo' ? 'CR Demo' : s.studyDescription === 'Synthetic Mammography Demo' ? 'MG Demo' : s.studyDescription === 'Synthetic C-arm Lumbar Procedure Demo' && s.patientId === 'DEMO-CARM-001' ? 'C-arm Demo' : s.studyDescription === 'Synthetic Cardiac Doppler Ultrasound Demo' && s.patientId === 'DEMO-US-ECHO-001' ? 'US Demo' : s.modality}</span></td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <button className="uid" title={s.studyInstanceUid} type="button" onClick={() => setDrawerStudy(s)}>
                         {s.studyInstanceUid}
