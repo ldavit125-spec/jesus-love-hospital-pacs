@@ -116,6 +116,7 @@ export default function Home() {
   const [toDate, setToDate] = useState('');
   const [localDate, setLocalDate] = useState<Date | null>(null);
   const [selectedStudyId, setSelectedStudyId] = useState<string | null>(null);
+  const [selectedStudyIds, setSelectedStudyIds] = useState<string[]>([]);
   const [drawerStudy, setDrawerStudy] = useState<StudyListItem | null>(null);
 
   useEffect(() => {
@@ -178,6 +179,17 @@ export default function Home() {
   }, [studies]);
 
   const selectedStudy = studies.find((study) => study.orthancStudyId === selectedStudyId);
+  const allStudiesSelected = studies.length > 0 && studies.every((study) => selectedStudyIds.includes(study.orthancStudyId));
+
+  const toggleAllStudies = (checked: boolean) => {
+    setSelectedStudyIds(checked ? studies.map((study) => study.orthancStudyId) : []);
+  };
+
+  const toggleStudy = (studyId: string, checked: boolean) => {
+    setSelectedStudyIds((current) => checked
+      ? (current.includes(studyId) ? current : [...current, studyId])
+      : current.filter((id) => id !== studyId));
+  };
 
   const reset = () => {
     setQuery('');
@@ -302,10 +314,10 @@ export default function Home() {
           </section>
 
           <section className="table-card">
-            <header className="table-tools"><div><h2>검사 목록</h2><span>총 <strong>{studies.length}</strong>건</span></div><div><button type="button">⇩ 목록 내보내기</button><button className="add" type="button">＋ 검사 등록</button></div></header>
+            <header className="table-tools"><div><h2>검사 목록</h2><span>총 <strong>{studies.length}</strong>건</span></div><div><button type="button">⇩ 목록 내보내기</button><button className="add" type="button">▣ CD 굽기</button></div></header>
             <div className="table-scroll">
               <table>
-                <thead><tr><th><input aria-label="전체 선택" type="checkbox" /></th><th>환자정보</th><th>검사일시</th><th>검사번호</th><th>검사명</th><th>장비</th><th>STUDY UID</th><th>영상수</th><th>판독상태</th><th>보기</th></tr></thead>
+                <thead><tr><th><input aria-label="전체 선택" type="checkbox" checked={allStudiesSelected} onChange={(event) => toggleAllStudies(event.target.checked)} /></th><th>환자정보</th><th>검사일시</th><th>검사번호</th><th>검사명</th><th>장비</th><th>STUDY UID</th><th>영상수</th><th>판독상태</th><th>보기</th></tr></thead>
                 <tbody>{studies.map((s) => (
                   <tr
                     key={s.studyInstanceUid}
@@ -313,7 +325,7 @@ export default function Home() {
                     onClick={() => setDrawerStudy(s)}
                   >
                     <td onClick={(e) => e.stopPropagation()}>
-                      <input aria-label={`${s.patientName} 검사 선택`} type="checkbox" />
+                      <input aria-label={`${s.patientName} 검사 선택`} type="checkbox" checked={selectedStudyIds.includes(s.orthancStudyId)} onChange={(event) => toggleStudy(s.orthancStudyId, event.target.checked)} />
                     </td>
                     <td><strong>{s.patientName}</strong><small>{s.patientId}</small></td>
                     <td><strong>{s.studyDate}</strong><small>{s.studyTime}</small></td>

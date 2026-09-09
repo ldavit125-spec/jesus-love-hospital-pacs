@@ -306,21 +306,26 @@ export default function App() {
                 const sResp = await fetch(`/orthanc/series/${sId}`);
                 if (sResp.ok) {
                   const seriesData = await sResp.json() as { Instances?: string[]; MainDicomTags?: { Modality?: string } };
-                  const studyInstances = await Promise.all((seriesData.Instances ?? []).map(async (instanceId) => {
-                    const instanceResp = await fetch(`/orthanc/instances/${instanceId}`);
-                    const instanceData = instanceResp.ok ? await instanceResp.json() as { ID: string; MainDicomTags?: { Modality?: string } } : { ID: instanceId };
-                    return instanceData;
-                  }));
-                  fetchedInstances.push(...studyInstances.map((instance) => ({
-                    ...instance,
-                    MainDicomTags: {
-                      ...instance.MainDicomTags,
-                      Modality: seriesData.MainDicomTags?.Modality,
-                    },
-                  })));
-                  studyInstances.forEach((instance) => {
-                    imageIds.push(`wadouri:${window.location.origin}/orthanc/instances/${instance.ID}/file`);
-                  });
+                  const instanceIds = seriesData.Instances ?? [];
+                  // The Series response already contains every instance ID. Fetch only
+                  // the first instance's metadata so the first image can start loading
+                  // without waiting for all 32 instance-detail requests to complete.
+                  if (instanceIds.length > 0) {
+                    const firstInstanceResp = await fetch(`/orthanc/instances/${instanceIds[0]}`);
+                    const firstInstance = firstInstanceResp.ok
+                      ? await firstInstanceResp.json() as { ID: string; MainDicomTags?: { Modality?: string } }
+                      : { ID: instanceIds[0] };
+                    fetchedInstances.push({
+                      ...firstInstance,
+                      MainDicomTags: {
+                        ...firstInstance.MainDicomTags,
+                        Modality: seriesData.MainDicomTags?.Modality,
+                      },
+                    });
+                  }
+                  imageIds.push(...instanceIds.map((instanceId) =>
+                    `wadouri:${window.location.origin}/orthanc/instances/${instanceId}/file`
+                  ));
                 }
               }
             }
@@ -338,7 +343,13 @@ export default function App() {
         setCurrentImageIndex(0);
 
         setStatus(`DICOM 파일 (${imageIds.length}건) 로드 및 Stack 생성 중...`);
-        await viewport.setStack(imageIds, 0);
+        // Start stack setup without blocking the first-image path. Cornerstone
+        // keeps the full image ID list for later scrolling while the first image
+        // is decoded and rendered immediately below.
+        const stackSetupPromise = viewport.setStack(imageIds, 0);
+        stackSetupPromise.catch((stackErr) => {
+          console.warn('Stack 백그라운드 준비 실패:', stackErr);
+        });
 
         // Listen to stack scroll / image changed events to update currentImageIndex
         const element = elementRef.current;
