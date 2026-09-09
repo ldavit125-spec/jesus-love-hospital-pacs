@@ -69,7 +69,8 @@ function matchesCategory(study: StudyListItem, category: ModalityCategory): bool
     return mod === 'MR' || mod === 'MRI';
   }
   if (category === 'Ultrasound') {
-    return mod === 'US' || mod === 'ULTRASOUND' || mod.includes('SONO') || desc.includes('SONO');
+    return mod === 'US' || mod === 'ULTRASOUND' || mod.includes('SONO') || desc.includes('SONO')
+      || (desc.includes('CARDIAC DOPPLER ULTRASOUND') && study.patientId === 'DEMO-US-ECHO-001');
   }
   if (category === 'Mammography') {
     return mod === 'MG' || mod === 'MAMMOGRAPHY' || mod.includes('MAMMO');
