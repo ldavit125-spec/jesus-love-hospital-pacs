@@ -37,6 +37,13 @@ const XRAY_EQUIPMENT_OPTIONS = [
 
 const koreanWeekdays = ['일', '월', '화', '수', '목', '금', '토'];
 
+function SystemStatus({ studies, error, checkedAt, onRefresh }: { studies: StudyListItem[]; error: string; checkedAt: Date | null; onRefresh: () => void }) {
+  const value = error ? '조회 실패' : undefined;
+  const series = error ? value : studies.reduce((n, s) => n + s.seriesCount, 0);
+  const instances = error ? value : studies.reduce((n, s) => n + s.imageCount, 0);
+  return <div className="system-page"><div className="heading"><div><p>SYSTEM STATUS</p><h1>시스템</h1><span>현재 PACS 및 Orthanc 연결 상태</span></div><button className="primary" type="button" onClick={onRefresh}>상태 새로고침</button></div><section className="stats"><article><i className="blue">●</i><div><span>PACS Server</span><strong>{error ? '연결 오류' : '정상 연결'}</strong></div></article><article><i className="blue">●</i><div><span>Orthanc 연결</span><strong>{error ? '연결 오류' : '정상 연결'}</strong></div></article></section><section className="study-summary"><div><span>총 Study 수</span><strong>{error ? value : studies.length}</strong></div><div><span>총 Series 수</span><strong>{series}</strong></div><div><span>총 Instance 수</span><strong>{instances}</strong></div><div><span>Storage 사용 가능 여부</span><strong>{error ? '확인 불가' : '사용 가능'}</strong></div><div><span>Orthanc Storage 경로</span><strong>확인 불가</strong></div><div><span>Orthanc DB/Index 경로</span><strong>확인 불가</strong></div><div><span>마지막 확인 시간</span><strong>{checkedAt ? checkedAt.toLocaleString('ko-KR') : '아직 확인하지 않음'}</strong></div><div><span>PACS 버전</span><strong>v1.0.0</strong></div></section>{error && <p className="empty">Orthanc 조회 실패: {error}</p>}</div>;
+}
+
 function formatLocalDate(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -119,6 +126,8 @@ export default function Home() {
   const [selectedStudyId, setSelectedStudyId] = useState<string | null>(null);
   const [selectedStudyIds, setSelectedStudyIds] = useState<string[]>([]);
   const [drawerStudy, setDrawerStudy] = useState<StudyListItem | null>(null);
+  const [systemOpen, setSystemOpen] = useState(false);
+  const [systemCheckedAt, setSystemCheckedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     let midnightTimer: number;
@@ -241,7 +250,7 @@ export default function Home() {
                   <button
                     type="button"
                     className="active has-sub"
-                    onClick={() => setIsStudyListOpen((prev) => !prev)}
+                    onClick={() => { setSystemOpen(false); setIsStudyListOpen((prev) => !prev); }}
                     aria-expanded={isStudyListOpen}
                   >
                     <i>{icon}</i>
@@ -277,7 +286,7 @@ export default function Home() {
               );
             }
             return (
-              <button key={label} type="button">
+              <button key={label} type="button" className={systemOpen ? 'active' : ''} onClick={() => setSystemOpen(true)}>
                 <i>{icon}</i>
                 <span>{label}</span>
               </button>
@@ -295,6 +304,7 @@ export default function Home() {
         </header>
 
         <main className="content">
+          {systemOpen ? <SystemStatus studies={orthancStudies} error={orthancError} checkedAt={systemCheckedAt} onRefresh={async () => { try { const r = await fetch('/api/orthanc/studies', { cache: 'no-store' }); const d = await r.json(); if (!r.ok) throw new Error(d.error || '조회 실패'); setOrthancStudies(d.studies || []); setOrthancError(''); } catch (e) { setOrthancError(e instanceof Error ? e.message : '조회 실패'); } finally { setSystemCheckedAt(new Date()); } }} /> : <>
           <div className="heading"><div><p>STUDY MANAGEMENT</p><h1>영상검사 목록</h1><span>등록된 의료영상 검사를 조회하고 관리합니다.</span></div><div className="today"><em>오늘</em><strong>{formattedLocalDate?.date}</strong><span>{formattedLocalDate?.weekday}</span></div></div>
 
           <section className="stats" aria-label="검사 현황">
@@ -340,7 +350,7 @@ export default function Home() {
                     <td><strong>{s.studyDate}</strong><small>{s.studyTime}</small></td>
                     <td><strong className="accession">{s.accessionNumber}</strong><small>-</small></td>
                     <td><strong>{s.studyDescription}</strong><small>-</small></td>
-                    <td><span className={`modality ${s.modality.replace('-', '').toLowerCase()}`}>{s.studyDescription === 'Synthetic Chest X-ray Demo' ? 'CR Demo' : s.studyDescription === 'Synthetic Mammography Demo' ? 'MG Demo' : s.studyDescription === 'Synthetic C-arm Lumbar Procedure Demo' && s.patientId === 'DEMO-CARM-001' ? 'C-arm Demo' : s.studyDescription === 'Synthetic Cardiac Doppler Ultrasound Demo' && s.patientId === 'DEMO-US-ECHO-001' ? 'US Demo' : s.modality}</span></td>
+                    <td><span className={`modality ${s.modality.replace('-', '').toLowerCase()}`}>{s.studyDescription === 'Synthetic Chest X-ray Demo' ? 'CR Demo' : s.studyDescription === 'Synthetic Mammography Demo' ? 'MG Demo' : s.studyDescription === 'Synthetic C-arm Lumbar Procedure Demo' && s.patientId === 'DEMO-CARM-001' ? 'C-arm Demo' : s.studyDescription === 'Synthetic Cardiac Doppler Ultrasound Demo' && s.patientId === 'DEMO-US-ECHO-001' ? 'US Demo' : s.studyDescription === 'Synthetic Liver CT 3-Phase Demo' && s.patientId === 'DEMO-CT-LIVER-001' ? 'CT Demo' : s.modality}</span></td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <button className="uid" title={s.studyInstanceUid} type="button" onClick={() => setDrawerStudy(s)}>
                         {s.studyInstanceUid}
@@ -386,7 +396,7 @@ export default function Home() {
               onOpenViewer={openViewer}
             />
           )}
-          <p className="prototype">본 화면은 UI 프로토타입이며 실제 의료 진단 목적으로 사용할 수 없습니다.</p>
+          <p className="prototype">본 화면은 UI 프로토타입이며 실제 의료 진단 목적으로 사용할 수 없습니다.</p></>}
         </main>
       </div>
     </div>
