@@ -8,6 +8,7 @@ import './index.css';
 type ToolMode = 'zoom' | 'pan' | 'windowLevel';
 
 let isInitialized = false;
+let initializationPromise: Promise<void> | null = null;
 
 function ensurePart10ArrayBuffer(inputBuf: ArrayBuffer): ArrayBuffer {
   const u8 = new Uint8Array(inputBuf);
@@ -98,52 +99,130 @@ function ensurePart10ArrayBuffer(inputBuf: ArrayBuffer): ArrayBuffer {
   return out.buffer;
 }
 
-function initCornerstone() {
-  if (isInitialized) return;
+async function loadInitialImageWithRetry(imageId: string, maxAttempts = 3): Promise<any> {
+  let lastError: unknown = new Error('초기 이미지 로드 실패');
 
-  cornerstone.init({
-    rendering: {
-      useCPURendering: false,
-      preferSizeOverAccuracy: true,
-    },
-  } as any);
-  cornerstoneTools.init();
-
-  cornerstoneTools.addTool(cornerstoneTools.ZoomTool);
-  cornerstoneTools.addTool(cornerstoneTools.PanTool);
-  cornerstoneTools.addTool(cornerstoneTools.WindowLevelTool);
-  cornerstoneTools.addTool(cornerstoneTools.StackScrollTool);
-
-  dicomImageLoader.init({
-    maxWebWorkers: 1,
-    useLegacyMetadataProvider: true,
-  });
-
-  dicomImageLoader.internal.setOptions({
-    beforeProcessing: (xhr: XMLHttpRequest) => {
-      const response = xhr.response;
-      if (response instanceof ArrayBuffer) {
-        return Promise.resolve(ensurePart10ArrayBuffer(response));
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    console.log(`[Viewer] loadAndCacheImage attempt ${attempt}/${maxAttempts}`, imageId);
+    let timeoutId: number | undefined;
+    try {
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = window.setTimeout(() => {
+          reject(new Error(`초기 이미지 로드 시간 초과 (${attempt}/${maxAttempts})`));
+        }, 8000);
+      });
+      const image = await Promise.race([
+        cornerstone.imageLoader.loadAndCacheImage(imageId),
+        timeoutPromise,
+      ]);
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      return image;
+    } catch (err) {
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      lastError = err;
+      console.warn(`[Viewer] loadAndCacheImage retry ${attempt}/${maxAttempts}`, err);
+      if (attempt < maxAttempts) {
+        await new Promise((resolve) => window.setTimeout(resolve, 100));
       }
-      return Promise.resolve(response);
-    },
+    }
+  }
+
+  throw lastError;
+}
+
+async function preloadDicomFile(imageId: string, maxAttempts = 3): Promise<string> {
+  const url = imageId.replace(/^wadouri:/, '');
+  let lastError: unknown = new Error('DICOM 파일 사전 로드 실패');
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 12000);
+    try {
+      console.log(`[Viewer] DICOM prefetch start ${attempt}/${maxAttempts}`, url);
+      const response = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error(`DICOM 파일 요청 실패 (${response.status})`);
+      }
+      const buffer = await response.arrayBuffer();
+      if (buffer.byteLength === 0) {
+        throw new Error('DICOM 파일이 비어 있습니다');
+      }
+      const localImageId = dicomImageLoader.wadouri.fileManager.add(
+        new Blob([buffer], { type: response.headers.get('content-type') || 'application/dicom' })
+      );
+      console.log('[Viewer] DICOM prefetch complete', { localImageId, bytes: buffer.byteLength });
+      return localImageId;
+    } catch (err) {
+      lastError = err;
+      console.warn(`[Viewer] DICOM prefetch retry ${attempt}/${maxAttempts}`, err);
+      if (attempt < maxAttempts) {
+        await new Promise((resolve) => window.setTimeout(resolve, 100));
+      }
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  }
+
+  throw lastError;
+}
+
+function initCornerstone(): Promise<void> {
+  if (isInitialized) return Promise.resolve();
+  if (initializationPromise) return initializationPromise;
+
+  initializationPromise = (async () => {
+    console.log('[Viewer] Cornerstone initialization start');
+    await cornerstone.init({
+      rendering: {
+        useCPURendering: false,
+        preferSizeOverAccuracy: true,
+      },
+    } as any);
+    await cornerstoneTools.init();
+
+    cornerstoneTools.addTool(cornerstoneTools.ZoomTool);
+    cornerstoneTools.addTool(cornerstoneTools.PanTool);
+    cornerstoneTools.addTool(cornerstoneTools.WindowLevelTool);
+    cornerstoneTools.addTool(cornerstoneTools.StackScrollTool);
+
+    await dicomImageLoader.init({
+      maxWebWorkers: 1,
+      useLegacyMetadataProvider: true,
+    });
+
+    dicomImageLoader.internal.setOptions({
+      beforeProcessing: (xhr: XMLHttpRequest) => {
+        const response = xhr.response;
+        if (response instanceof ArrayBuffer) {
+          return Promise.resolve(ensurePart10ArrayBuffer(response));
+        }
+        return Promise.resolve(response);
+      },
+    });
+
+    // CR X-ray images may have 0.000\0.000 pixel spacing tag which causes 0-width GPU texture spacing
+    cornerstone.metaData.addProvider((type: string, _imageId?: string) => {
+      if (type === 'imagePlaneModule') {
+        return {
+          rowPixelSpacing: 1.0,
+          columnPixelSpacing: 1.0,
+          rowCosines: [1, 0, 0],
+          columnCosines: [0, 1, 0],
+          imagePositionPatient: [0, 0, 0],
+          imageOrientationPatient: [1, 0, 0, 0, 1, 0],
+        };
+      }
+    }, 10000);
+
+    isInitialized = true;
+    console.log('[Viewer] Cornerstone initialization complete');
+  })().catch((err) => {
+    initializationPromise = null;
+    isInitialized = false;
+    throw err;
   });
 
-  // CR X-ray images may have 0.000\0.000 pixel spacing tag which causes 0-width GPU texture spacing
-  cornerstone.metaData.addProvider((type: string, _imageId?: string) => {
-    if (type === 'imagePlaneModule') {
-      return {
-        rowPixelSpacing: 1.0,
-        columnPixelSpacing: 1.0,
-        rowCosines: [1, 0, 0],
-        columnCosines: [0, 1, 0],
-        imagePositionPatient: [0, 0, 0],
-        imageOrientationPatient: [1, 0, 0, 0, 1, 0],
-      };
-    }
-  }, 10000);
-
-  isInitialized = true;
+  return initializationPromise;
 }
 
 export default function App() {
@@ -158,6 +237,7 @@ export default function App() {
   const queryParams = new URLSearchParams(window.location.search);
   const studyInstanceUid = queryParams.get('studyInstanceUid') || '';
   const seriesInstanceUid = queryParams.get('seriesInstanceUid') || '';
+  const seriesDescription = queryParams.get('seriesDescription') || '';
   const orthancStudyId = queryParams.get('orthancStudyId') || '';
   const orthancSeriesId = queryParams.get('orthancSeriesId') || '';
   const accessionNumber = queryParams.get('accessionNumber') || '';
@@ -177,23 +257,38 @@ export default function App() {
     modality: string;
   } | null>(null);
 
+  const showDemoOverlay =
+    studyInstanceUid === '2.25.887231153867654541861939074535722688801' &&
+    Boolean(dicomInfo) &&
+    !isLoading &&
+    !error;
+
+  const setupRunRef = useRef(0);
+
   useEffect(() => {
+    const runId = ++setupRunRef.current;
     let isMounted = true;
+    const isActive = () => isMounted && setupRunRef.current === runId;
     const renderingEngineId = 'jesus-love-engine';
     const viewportId = 'xray-viewport-main';
     const toolGroupId = 'xray-tool-group-main';
+    let renderingEngine: cornerstone.RenderingEngine | null = null;
+    let toolGroup: cornerstoneTools.Types.IToolGroup | null = null;
+    let imageRenderedHandler: (() => void) | null = null;
 
     async function setupViewer() {
       if (!elementRef.current) return;
 
       try {
         setStatus('Cornerstone3D 및 DICOM Loader 초기화 중...');
-        initCornerstone();
+        await initCornerstone();
+        console.log('[Viewer] loader init complete');
 
-        if (!isMounted || !elementRef.current) return;
+        if (!isActive() || !elementRef.current) return;
 
         setStatus('렌더링 엔진 구성 중...');
-        const renderingEngine = new cornerstone.RenderingEngine(renderingEngineId);
+        renderingEngine = new cornerstone.RenderingEngine(renderingEngineId);
+        console.log('[Viewer] rendering engine created');
 
         renderingEngine.enableElement({
           viewportId,
@@ -203,8 +298,9 @@ export default function App() {
             background: [0, 0, 0] as cornerstone.Types.Point3,
           },
         });
+        console.log('[Viewer] viewport enabled');
 
-        const toolGroup = cornerstoneTools.ToolGroupManager.createToolGroup(toolGroupId);
+        toolGroup = cornerstoneTools.ToolGroupManager.createToolGroup(toolGroupId) ?? null;
         if (!toolGroup) {
           throw new Error('ToolGroup 생성 실패');
         }
@@ -253,11 +349,13 @@ export default function App() {
             }
             const seriesData = (await resp.json()) as { Instances?: string[] };
             const instanceIds = seriesData.Instances ?? [];
-            const instancesData = await Promise.all(instanceIds.map(async (id) => ({
-              ID: id,
-              MainDicomTags: (await (await fetch(`/orthanc/instances/${id}`)).json()).MainDicomTags,
-            })));
-            const normalizedInstancesData = instancesData as Array<{
+            const firstInstance = instanceIds.length > 0
+              ? await (async () => {
+                const r = await fetch(`/orthanc/instances/${instanceIds[0]}`);
+                return { ID: instanceIds[0], MainDicomTags: r.ok ? (await r.json()).MainDicomTags : undefined };
+              })()
+              : null;
+            const normalizedInstancesData = (firstInstance ? [firstInstance] : []) as Array<{
                ID: string;
                IndexInSeries?: number;
                MainDicomTags?: {
@@ -268,27 +366,9 @@ export default function App() {
             }>;
             fetchedInstances = normalizedInstancesData;
 
-            if (normalizedInstancesData && normalizedInstancesData.length > 0) {
-              const sortedInstances = normalizedInstancesData
-                .map((inst, index) => {
-                  const numStr = inst.MainDicomTags?.InstanceNumber;
-                  const parsedNum = numStr ? parseInt(numStr, 10) : NaN;
-                  return {
-                    id: inst.ID,
-                    instanceNumber: Number.isNaN(parsedNum) ? index + 1 : parsedNum,
-                    sopInstanceUid: inst.MainDicomTags?.SOPInstanceUID,
-                    originalIndex: index,
-                  };
-                })
-                .sort((a, b) => {
-                  if (a.instanceNumber !== b.instanceNumber) {
-                    return a.instanceNumber - b.instanceNumber;
-                  }
-                  return a.originalIndex - b.originalIndex;
-                });
-
-              imageIds = sortedInstances.map(
-                (inst) => `wadouri:${window.location.origin}/orthanc/instances/${inst.id}/file`
+            if (instanceIds.length > 0) {
+              imageIds = instanceIds.map(
+                (id) => `wadouri:${window.location.origin}/orthanc/instances/${id}/file`
               );
             }
           } catch (fetchErr) {
@@ -302,10 +382,19 @@ export default function App() {
             if (studyResp.ok) {
               const studyData = await studyResp.json() as { Series?: string[] };
               const seriesIds = studyData.Series || [];
-              for (const sId of seriesIds) {
+              // A Study-level view may contain multiple phase Series (for
+              // example the synthetic liver CT). Combine their image IDs in
+              // SeriesNumber order; explicit Series-level views still use the
+              // dedicated orthancSeriesId branch and keep a 12-image stack.
+              const selectedSeriesIds = seriesIds;
+              const seriesImageGroups: Array<{ seriesNumber: number; imageIds: string[] }> = [];
+              for (const sId of selectedSeriesIds) {
                 const sResp = await fetch(`/orthanc/series/${sId}`);
                 if (sResp.ok) {
                   const seriesData = await sResp.json() as { Instances?: string[]; MainDicomTags?: { Modality?: string } };
+                  const seriesUid = (seriesData.MainDicomTags as { SeriesInstanceUID?: string } | undefined)?.SeriesInstanceUID || '';
+                  const seriesDesc = (seriesData.MainDicomTags as { SeriesDescription?: string } | undefined)?.SeriesDescription || '';
+                  if ((seriesInstanceUid && seriesUid !== seriesInstanceUid) || (seriesDescription && seriesDesc !== seriesDescription)) continue;
                   const instanceIds = seriesData.Instances ?? [];
                   // The Series response already contains every instance ID. Fetch only
                   // the first instance's metadata so the first image can start loading
@@ -323,16 +412,24 @@ export default function App() {
                       },
                     });
                   }
-                  imageIds.push(...instanceIds.map((instanceId) =>
-                    `wadouri:${window.location.origin}/orthanc/instances/${instanceId}/file`
-                  ));
+                  const seriesNumber = Number.parseInt((seriesData.MainDicomTags as { SeriesNumber?: string } | undefined)?.SeriesNumber || '', 10);
+                  seriesImageGroups.push({
+                    seriesNumber: Number.isNaN(seriesNumber) ? Number.MAX_SAFE_INTEGER : seriesNumber,
+                    imageIds: instanceIds.map((instanceId) =>
+                      `wadouri:${window.location.origin}/orthanc/instances/${instanceId}/file`
+                    ),
+                  });
                 }
               }
+              seriesImageGroups.sort((a, b) => a.seriesNumber - b.seriesNumber);
+              imageIds.push(...seriesImageGroups.flatMap((group) => group.imageIds));
             }
           } catch (fetchErr) {
             console.warn('Orthanc Study API 조회 실패:', fetchErr);
           }
         }
+
+        if (!isActive()) return;
 
         // Fallback to sample-xray if no instances loaded from Orthanc
         if (imageIds.length === 0) {
@@ -343,29 +440,34 @@ export default function App() {
         setCurrentImageIndex(0);
 
         setStatus(`DICOM 파일 (${imageIds.length}건) 로드 및 Stack 생성 중...`);
-        // Start stack setup without blocking the first-image path. Cornerstone
-        // keeps the full image ID list for later scrolling while the first image
-        // is decoded and rendered immediately below.
-        const stackSetupPromise = viewport.setStack(imageIds, 0);
-        stackSetupPromise.catch((stackErr) => {
-          console.warn('Stack 백그라운드 준비 실패:', stackErr);
-        });
+        // Fetch the first file once and hand it to dicom-image-loader's local
+        // file manager. This avoids a second, competing WADO-URI request when
+        // StackViewport.setStack() loads the initial image.
+        const localInitialImageId = await preloadDicomFile(imageIds[0]);
+        imageIds[0] = localInitialImageId;
+        const initialImageId = localInitialImageId;
+        setStatus('첫 DICOM 이미지 디코딩 중...');
+        console.log('[Viewer] loadAndCacheImage start', initialImageId);
+        const image = await loadInitialImageWithRetry(initialImageId);
+        console.log('[Viewer] loadAndCacheImage resolved', image);
+        if (!isActive()) return;
+
+        setStatus('Stack 연결 중...');
+        console.log('[Viewer] setStack start', { imageCount: imageIds.length });
+        await viewport.setStack(imageIds, 0);
+        console.log('[Viewer] setStack resolved');
+        if (!isActive()) return;
 
         // Listen to stack scroll / image changed events to update currentImageIndex
         const element = elementRef.current;
         const handleImageRendered = () => {
-          if (!isMounted) return;
+          if (!isActive()) return;
           const currentIdx = viewport.getCurrentImageIdIndex();
           setCurrentImageIndex(currentIdx);
         };
+        imageRenderedHandler = handleImageRendered;
         element.addEventListener(cornerstone.Enums.Events.STACK_VIEWPORT_SCROLL, handleImageRendered);
         element.addEventListener(cornerstone.Enums.Events.IMAGE_RENDERED, handleImageRendered);
-
-        // Ensure image is loaded and cached
-        const initialImageId = imageIds[0];
-        console.log('Loading image via cornerstone.imageLoader.loadAndCacheImage:', initialImageId);
-        const image = await cornerstone.imageLoader.loadAndCacheImage(initialImageId);
-        console.log('Cornerstone loaded initial image object:', image);
 
         if (image) {
           (window as any).__debugDicomInfo = {
@@ -467,15 +569,39 @@ export default function App() {
         (window as any).__csViewport = viewport;
         (window as any).__csRenderingEngine = renderingEngine;
 
+        renderingEngine.resize();
         viewport.resetCamera();
+        if (orthancStudyId === '7542e7cc-ddeaf4f4-0aa2d511-43bfa083-d9900229') {
+          const camera = viewport.getCamera();
+          camera.parallelScale = Math.max(image.rows, image.columns) * 1.15;
+          viewport.setCamera(camera);
+        }
+
+        const imageRenderedPromise = new Promise<void>((resolve, reject) => {
+          const timeoutId = window.setTimeout(() => {
+            element.removeEventListener(cornerstone.Enums.Events.IMAGE_RENDERED, onFirstImageRendered);
+            reject(new Error('IMAGE_RENDERED 이벤트 대기 시간 초과'));
+          }, 15000);
+          function onFirstImageRendered() {
+            window.clearTimeout(timeoutId);
+            element.removeEventListener(cornerstone.Enums.Events.IMAGE_RENDERED, onFirstImageRendered);
+            console.log('[Viewer] image rendered event');
+            resolve();
+          }
+          element.addEventListener(cornerstone.Enums.Events.IMAGE_RENDERED, onFirstImageRendered);
+        });
+
+        console.log('[Viewer] viewport render called');
         viewport.render();
+        await imageRenderedPromise;
+        if (!isActive()) return;
 
         setTool('zoom');
         setIsLoading(false);
         setStatus(`DICOM Stack (${imageIds.length}건) 렌더링 완료`);
       } catch (err) {
         console.error('DICOM Viewer Load Error:', err);
-        if (isMounted) {
+        if (isActive()) {
           setError(err instanceof Error ? err.message : String(err));
           setIsLoading(false);
           setStatus('오류가 발생했습니다.');
@@ -487,9 +613,17 @@ export default function App() {
 
     return () => {
       isMounted = false;
-      if (viewerRef.current) {
-        cornerstoneTools.ToolGroupManager.destroyToolGroup(toolGroupId);
-        viewerRef.current.renderingEngine.destroy();
+      if (elementRef.current && imageRenderedHandler) {
+        elementRef.current.removeEventListener(cornerstone.Enums.Events.STACK_VIEWPORT_SCROLL, imageRenderedHandler);
+        elementRef.current.removeEventListener(cornerstone.Enums.Events.IMAGE_RENDERED, imageRenderedHandler);
+      }
+      if (viewerRef.current?.renderingEngine === renderingEngine) {
+        try {
+          cornerstoneTools.ToolGroupManager.destroyToolGroup(toolGroupId);
+        } catch (cleanupErr) {
+          console.warn('[Viewer] ToolGroup cleanup skipped:', cleanupErr);
+        }
+        renderingEngine?.destroy();
         viewerRef.current = null;
       }
     };
@@ -613,7 +747,7 @@ export default function App() {
             className="cornerstone-canvas-container"
           />
 
-          {dicomInfo && (
+          {dicomInfo && !showDemoOverlay && (
             <>
               <div className="info-overlay top-left">
                 <div>예수사랑병원 영상의학과</div>
@@ -635,6 +769,31 @@ export default function App() {
                 <div>Cornerstone3D v5.8.2 Stack Viewport</div>
               </div>
             </>
+          )}
+
+          {showDemoOverlay && (
+            <div className="demo-pacs-overlay" aria-label="Synthetic Chest X-ray 포트폴리오 오버레이">
+              <div className="demo-pacs-overlay__corner demo-pacs-overlay__top-left">
+                <strong>정현우</strong>
+                <span>M / 31Y</span>
+                <span>DOB: 1995-04-03</span>
+                <span>Chest PA</span>
+              </div>
+              <div className="demo-pacs-overlay__corner demo-pacs-overlay__top-right">
+                <strong>Jesus Love Hospital</strong>
+                <span>2026-09-11 14:30</span>
+              </div>
+              <div className="demo-pacs-overlay__corner demo-pacs-overlay__bottom-left">
+                <span>120 kVp</span>
+                <span>2.5 mAs</span>
+                <span>Exposure Time: 10 ms</span>
+              </div>
+              <div className="demo-pacs-overlay__corner demo-pacs-overlay__bottom-right">
+                <span>Dose: 0.12 mGy</span>
+                <span>DX</span>
+                <span>PA</span>
+              </div>
+            </div>
           )}
 
           {error && (
