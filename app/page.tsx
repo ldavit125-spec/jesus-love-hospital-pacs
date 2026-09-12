@@ -645,7 +645,6 @@ export default function Home() {
             <div className="filters">
               <label><span>검색어</span><div className="input"><b>⌕</b><input placeholder="환자명, 환자번호, 검사번호" value={query} onChange={(e) => setQuery(e.target.value)} /></div></label>
               <label><span>검사일</span><div className="dates"><input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} /><i>—</i><input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} /></div></label>
-              <label><span>장비</span><select value={equipment} onChange={(e) => setEquipment(e.target.value)}>{availableEquipments.map((item) => <option key={item}>{item}</option>)}</select></label>
               <label><span>판독상태</span><select value={status} onChange={(e) => setStatus(e.target.value)}><option>전체 상태</option></select></label>
               <button className="search-btn" type="button">⌕ &nbsp;조회</button>
             </div>
