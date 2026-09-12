@@ -38,6 +38,15 @@ function value(tags: Record<string, string> | undefined, key: string) {
   return tags?.[key]?.trim() || '-';
 }
 
+export function formatPatientName(rawName?: string | null): string {
+  if (!rawName || rawName === '-') return '-';
+  const trimmed = rawName.trim();
+  if (trimmed.toUpperCase() === 'JEONG^HYEONWOO' || trimmed.toUpperCase() === 'JEONG HYEONWOO') {
+    return 'JEONG HYEON WOO';
+  }
+  return trimmed.replace(/\^+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 function date(value: string) {
   return /^\d{8}$/.test(value) ? `${value.slice(0, 4)}.${value.slice(4, 6)}.${value.slice(6, 8)}` : '-';
 }
@@ -99,7 +108,7 @@ export async function getOrthancStudies(): Promise<StudyListItem[]> {
       return {
         orthancStudyId: study.ID,
         patientId: value(study.PatientMainDicomTags, 'PatientID'),
-        patientName: value(study.PatientMainDicomTags, 'PatientName'),
+        patientName: formatPatientName(value(study.PatientMainDicomTags, 'PatientName')),
         accessionNumber: value(tags, 'AccessionNumber'),
         studyInstanceUid: value(tags, 'StudyInstanceUID'),
         studyDate: date(value(tags, 'StudyDate')),

@@ -11,7 +11,6 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 
 import { buildViewerUrl, type StudyListItem } from '../lib/orthanc';
-import StudyDrawer from './study-drawer';
 import StudyHierarchy from './study-hierarchy';
 
 const menuItems = [
@@ -141,7 +140,6 @@ export default function Home() {
   const [localDate, setLocalDate] = useState<Date | null>(null);
   const [selectedStudyId, setSelectedStudyId] = useState<string | null>(null);
   const [selectedStudyIds, setSelectedStudyIds] = useState<string[]>([]);
-  const [drawerStudy, setDrawerStudy] = useState<StudyListItem | null>(null);
   const [systemOpen, setSystemOpen] = useState(false);
   const [systemCheckedAt, setSystemCheckedAt] = useState<Date | null>(null);
 
@@ -665,12 +663,8 @@ export default function Home() {
               <table>
                 <thead><tr><th><input aria-label="전체 선택" type="checkbox" checked={allStudiesSelected} onChange={(event) => toggleAllStudies(event.target.checked)} /></th><th>환자정보</th><th>검사일시</th><th>검사번호</th><th>검사명</th><th>장비</th><th>STUDY UID</th><th>영상수</th><th>판독상태</th><th>보기</th></tr></thead>
                 <tbody>{studies.map((s) => (
-                  <tr
-                    key={s.studyInstanceUid}
-                    className="clickable-row"
-                    onClick={() => setDrawerStudy(s)}
-                  >
-                    <td onClick={(e) => e.stopPropagation()}>
+                  <tr key={s.studyInstanceUid}>
+                    <td>
                       <input aria-label={`${s.patientName} 검사 선택`} type="checkbox" checked={selectedStudyIds.includes(s.orthancStudyId)} onChange={(event) => toggleStudy(s.orthancStudyId, event.target.checked)} />
                     </td>
                     <td><strong>{s.patientName}</strong><small>{s.patientId}</small></td>
@@ -678,21 +672,14 @@ export default function Home() {
                     <td><strong className="accession">{s.accessionNumber}</strong><small>-</small></td>
                     <td><strong>{s.studyDescription}</strong><small>-</small></td>
                     <td><span className={`modality ${s.modality.replace('-', '').toLowerCase()}`}>{s.studyDescription === 'Synthetic Chest X-ray Demo' ? 'CR Demo' : s.studyDescription === 'Synthetic Mammography Demo' ? 'MG Demo' : s.studyDescription === 'Synthetic C-arm Lumbar Procedure Demo' && s.patientId === 'DEMO-CARM-001' ? 'C-arm Demo' : s.studyDescription === 'Synthetic Cardiac Doppler Ultrasound Demo' && s.patientId === 'DEMO-US-ECHO-001' ? 'US Demo' : s.studyDescription === 'Synthetic Liver CT 3-Phase Demo' && s.patientId === 'DEMO-CT-LIVER-001' ? 'CT Demo' : s.modality}</span></td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <button className="uid" title={s.studyInstanceUid} type="button" onClick={() => setDrawerStudy(s)}>
+                    <td>
+                      <span className="uid" title={s.studyInstanceUid}>
                         {s.studyInstanceUid}
-                      </button>
+                      </span>
                     </td>
                     <td><strong>{s.imageCount}</strong><small>Images</small></td>
                     <td><span className="status"><i />미등록</span></td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <button
-                        className="detail-btn"
-                        type="button"
-                        onClick={() => setDrawerStudy(s)}
-                      >
-                        상세보기
-                      </button>{' '}
+                    <td>
                       <button
                         className="viewer"
                         type="button"
@@ -716,13 +703,6 @@ export default function Home() {
             <footer className="pagination"><p>{studies.length ? 1 : 0}–{studies.length} / {studies.length}건</p><div><button disabled>‹</button><button className="current">1</button><button disabled>›</button></div><label>페이지당 <select defaultValue="10"><option>10</option><option>20</option></select></label></footer>
           </section>
           {selectedStudy && <StudyHierarchy key={selectedStudy.orthancStudyId} study={selectedStudy} />}
-          {drawerStudy && (
-            <StudyDrawer
-              study={drawerStudy}
-              onClose={() => setDrawerStudy(null)}
-              onOpenViewer={openViewer}
-            />
-          )}
 
           {isCdExportModalOpen && (() => {
             const selectedStudiesList = orthancStudies.filter((s) => selectedStudyIds.includes(s.orthancStudyId));

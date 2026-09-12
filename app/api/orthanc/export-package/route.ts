@@ -1,4 +1,4 @@
-import { orthancUrl } from '../../../../lib/orthanc';
+import { orthancUrl, formatPatientName } from '../../../../lib/orthanc';
 import { resourceId, HierarchyError } from '../../../../lib/orthanc-hierarchy';
 import { createZipBuffer, type ZipEntry } from '../../../../lib/simple-zip';
 
@@ -51,7 +51,8 @@ export async function POST(request: Request) {
     for (const studyId of studyIds) {
       const studyData = await fetchOrthancJson(`/studies/${studyId}`);
       const patientId = studyData.PatientMainDicomTags?.PatientID || studyData.MainDicomTags?.PatientID || 'UNKNOWN_PATIENT';
-      const patientName = studyData.PatientMainDicomTags?.PatientName || 'ANONYMIZED';
+      const rawPatientName = studyData.PatientMainDicomTags?.PatientName || studyData.MainDicomTags?.PatientName || 'ANONYMIZED';
+      const patientName = formatPatientName(rawPatientName);
       const studyDate = studyData.MainDicomTags?.StudyDate || '-';
       const accession = studyData.MainDicomTags?.AccessionNumber || '-';
       const studyDesc = studyData.MainDicomTags?.StudyDescription || '-';
