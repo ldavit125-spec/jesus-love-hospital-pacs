@@ -553,13 +553,6 @@ export default function Home() {
                     <td><span className="status"><i />미등록</span></td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <button
-                        className="detail-btn"
-                        type="button"
-                        onClick={() => setDrawerStudy(s)}
-                      >
-                        상세보기
-                      </button>{' '}
-                      <button
                         className="viewer"
                         type="button"
                         onClick={() => openViewer(

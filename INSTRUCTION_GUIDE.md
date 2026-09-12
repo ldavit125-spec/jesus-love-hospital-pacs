@@ -91,3 +91,48 @@ npm run dev -- --port 5174 --host
   npm install
   ```
 - Node.js 버전은 **v20 이상** 권장.
+
+---
+
+## 5. 현재 상태 메모 (집에서 이어서 작업할 때)
+
+### 현재 확인된 주요 Study
+
+| 용도 | PatientID | StudyDescription | Modality | 상태 |
+|---|---|---|---|---|
+| 실제 Chest PA | `-` / Accession `FUJI95714` | `Chest PA` | `CR` | Orthanc 복구됨 |
+| Liver CT | `HCC_004` | `Contrast-enhanced Abdomen/Liver CT` | `CT` | 유지 |
+| Brain MRI | `5Yp0E` | `IRM cérébrale, neuro-crâne` | `MR` | 유지 |
+| Synthetic Echo Demo | `DEMO-US-ECHO-001` | `Synthetic Cardiac Doppler Ultrasound Demo` | 원본 `OT`, 표시 `US Demo` | 유지 |
+| Synthetic Mammography Demo | `DEMO-MG-001` | `Synthetic Mammography Demo` | 원본 `MG`, 표시 `MG Demo` | 유지 |
+| Synthetic C-arm Demo | `DEMO-CARM-001` | `Synthetic C-arm Lumbar Procedure Demo` | 원본 `OT`, 표시 `C-arm Demo` | 유지 |
+
+삭제된 데이터:
+
+- Pelvic Ultrasound `US PELVIS W TRANSVAGINAL` 32개 Study
+- Synthetic Liver CT 3-Phase Demo
+- FUJI95714 placeholder 및 테스트용 9RG1 Study
+
+### 집에서 작업할 때의 안전 순서
+
+1. 먼저 `git status`와 현재 브랜치를 확인합니다.
+2. Orthanc(`8042`) → PACS(`3000`) → Viewer(`5174`) 순서로 실행합니다.
+3. `http://localhost:8042/system`, `http://localhost:3000/api/orthanc/studies`가 응답하는지 확인합니다.
+4. PACS에서 Study List가 0건이면 Viewer나 DICOM 파일을 먼저 수정하지 말고 Orthanc 연결/API부터 확인합니다.
+5. 실제 Study 삭제 전에는 PatientID, StudyDescription, Orthanc Study ID를 반드시 대조합니다.
+
+### 절대 주의
+
+- `git reset --hard`, `git restore`, force push를 사용하지 않습니다.
+- Orthanc Storage/Index를 초기화하지 않습니다.
+- 실제 DICOM 태그를 임의로 수정하거나, AP 영상을 PA로 이름을 바꾸지 않습니다.
+- Synthetic Demo는 실제 환자 영상이나 임상 측정값으로 표현하지 않습니다.
+- `FUJI95714` 원본은 Part 10 preamble이 없는 오래된 raw DICOM일 수 있으므로 `ensurePart10ArrayBuffer` 로직을 유지합니다.
+- 현재 Cornerstone Viewer는 일부 RGB Secondary Capture와 일부 Public Test Ultrasound에서 Stack 준비가 멈출 수 있습니다. 이 경우 패키지 교체나 대규모 리팩터링을 먼저 하지 말고 브라우저 Console/Network와 실제 Transfer Syntax를 확인합니다.
+- `maxWebWorkers = 1` 설정과 Cornerstone 버전은 임의로 변경하지 않습니다.
+- 새 DICOM을 업로드하기 전에는 반드시 Modality, PixelData, TransferSyntaxUID, Rows/Columns, Frame 수를 실제 헤더에서 확인합니다.
+
+### Git 저장 메모
+
+- 최근 원격 반영 커밋: `0ba073b` (`fix: include synthetic echo in ultrasound menu`)
+- 로그, 백업 폴더, `node_modules`, 캐시, 대용량 임시 파일은 커밋하지 않습니다.
