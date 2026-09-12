@@ -583,5 +583,64 @@ button.logout-btn:active {
   cursor: not-allowed;
 }
 
+/* DICOM Viewer Slice Badge & Metadata Overlay */
+.viewer-slice-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  background: rgba(22, 36, 52, 0.9);
+  border: 1px solid #42576c;
+  border-radius: 5px;
+  color: #38bdf8;
+  font-size: 11.5px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
 
+.viewer-overlay {
+  position: absolute;
+  padding: 14px 18px;
+  color: #38bdf8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 5px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+  z-index: 5;
+}
 
+.viewer-overlay .primary-text {
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.viewer-overlay .slice-text {
+  color: #facc15;
+  font-weight: 700;
+}
+
+.viewer-overlay.top-left {
+  top: 54px;
+  left: 14px;
+}
+
+.viewer-overlay.top-right {
+  top: 14px;
+  right: 14px;
+  text-align: right;
+}
+
+.viewer-overlay.bottom-left {
+  bottom: 32px;
+  left: 14px;
+}
+
+.viewer-overlay.bottom-right {
+  bottom: 14px;
+  right: 14px;
+  text-align: right;
+}

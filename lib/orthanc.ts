@@ -192,11 +192,14 @@ export async function getOrthancStudies(): Promise<StudyListItem[]> {
 }
 
 export function buildViewerUrl(params: { [key: string]: string | undefined | null }): string {
+  const studyUid = params.studyInstanceUid ? encodeURIComponent(params.studyInstanceUid) : '';
   const q = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
+    if (key === 'studyInstanceUid') continue;
     if (value && value !== '-' && value !== 'undefined' && value !== 'null') {
       q.set(key, value);
     }
   }
-  return `http://localhost:5174/?${q.toString()}`;
+  const queryString = q.toString();
+  return `/viewer/${studyUid}${queryString ? `?${queryString}` : ''}`;
 }
