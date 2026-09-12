@@ -151,17 +151,6 @@ export default async function ViewerPage({
     notFound();
   }
 
-  const metadata = [
-    ['환자명', study.patientName],
-    ['Patient ID', study.patientId],
-    ['검사명', study.studyDescription],
-    ['검사일시', `${study.studyDate} ${study.studyTime}`],
-    ['Modality', study.modality],
-    ['Instance 수', `${study.instanceIds.length} Images`],
-    ['Accession No.', study.accessionNumber],
-    ['Study Instance UID', study.studyInstanceUid],
-  ];
-
   return (
     <div className="viewer-shell">
       <aside className="sidebar viewer-sidebar">
@@ -214,21 +203,6 @@ export default async function ViewerPage({
           </Link>
         </header>
         <main className="viewer-content">
-          <div className="viewer-heading">
-            <div>
-              <p>DICOM VIEWER</p>
-              <h1>영상 뷰어</h1>
-            </div>
-            <span>Orthanc DICOM Stack 연결됨</span>
-          </div>
-          <section className="study-summary" aria-label="선택 검사 정보">
-            {metadata.map(([label, value]) => (
-              <div key={label} className={label === 'Study Instance UID' ? 'wide' : ''}>
-                <span>{label}</span>
-                <strong title={value}>{value}</strong>
-              </div>
-            ))}
-          </section>
           <DicomViewer
             instanceIds={study.instanceIds}
             metadata={{
