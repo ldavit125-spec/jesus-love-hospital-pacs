@@ -54,7 +54,7 @@ export function createZipBuffer(entries: ZipEntry[]): Buffer {
     const uncompressedSize = rawData.length;
 
     // Use deflate compression
-    let compressedData = zlib.deflateRawSync(rawData, { level: 6 });
+    let compressedData: Buffer = zlib.deflateRawSync(rawData, { level: 6 });
     let compressionMethod = 8; // Deflated
 
     // If compressed size is larger than uncompressed, fallback to STORE (0)

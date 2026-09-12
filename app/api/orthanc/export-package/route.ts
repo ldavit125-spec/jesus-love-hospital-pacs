@@ -143,7 +143,7 @@ export async function POST(request: Request) {
     const zipBuffer = createZipBuffer(zipEntries);
     const filename = `PACS_EXPORT_${todayStr}.zip`;
 
-    return new Response(zipBuffer, {
+    return new Response(new Uint8Array(zipBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/zip',

@@ -245,7 +245,7 @@ export default function Home() {
         study.modality,
         study.stationName,
       ];
-      return (!keyword || searchable.some((value) => value.toLowerCase().includes(keyword)))
+      return (!keyword || searchable.some((value) => (value ?? '').toLowerCase().includes(keyword)))
         && matchesCategory(study, selectedCategory)
         && matchesEquipment(study, selectedCategory, equipment)
         && status === '전체 상태'
@@ -384,7 +384,7 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}));
+        const errJson = (await response.json().catch(() => ({}))) as Record<string, any>;
         throw new Error(errJson.error || `서버 응답 오류 (HTTP ${response.status})`);
       }
 
@@ -621,7 +621,7 @@ export default function Home() {
         </header>
 
         <main className="content">
-          {systemOpen ? <SystemStatus studies={orthancStudies} error={orthancError} checkedAt={systemCheckedAt} onRefresh={async () => { try { const r = await fetch('/api/orthanc/studies', { cache: 'no-store' }); const d = await r.json(); if (!r.ok) throw new Error(d.error || '조회 실패'); setOrthancStudies(d.studies || []); setOrthancError(''); } catch (e) { setOrthancError(e instanceof Error ? e.message : '조회 실패'); } finally { setSystemCheckedAt(new Date()); } }} /> : <>
+          {systemOpen ? <SystemStatus studies={orthancStudies} error={orthancError} checkedAt={systemCheckedAt} onRefresh={async () => { try { const r = await fetch('/api/orthanc/studies', { cache: 'no-store' }); const d = (await r.json()) as any; if (!r.ok) throw new Error(d.error || '조회 실패'); setOrthancStudies(d.studies || []); setOrthancError(''); } catch (e) { setOrthancError(e instanceof Error ? e.message : '조회 실패'); } finally { setSystemCheckedAt(new Date()); } }} /> : <>
           <div className="heading"><div><p>STUDY MANAGEMENT</p><h1>영상검사 목록</h1><span>등록된 의료영상 검사를 조회하고 관리합니다.</span></div><div className="today"><em>오늘</em><strong>{formattedLocalDate?.date}</strong><span>{formattedLocalDate?.weekday}</span></div></div>
 
           <section className="stats" aria-label="검사 현황">

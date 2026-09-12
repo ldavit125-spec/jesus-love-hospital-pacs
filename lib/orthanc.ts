@@ -191,7 +191,7 @@ export async function getOrthancStudies(): Promise<StudyListItem[]> {
   return finalResults;
 }
 
-export function buildViewerUrl(params: { [key: string]: string }): string {
+export function buildViewerUrl(params: { [key: string]: string | undefined | null }): string {
   const q = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value && value !== '-' && value !== 'undefined' && value !== 'null') {

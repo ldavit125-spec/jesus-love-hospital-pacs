@@ -67,7 +67,7 @@ export default function DicomViewer() {
         toolGroup.addTool(tools.WindowLevelTool.toolName);
         toolGroup.addViewport(viewportId, renderingEngineId);
 
-        const viewport = renderingEngine.getViewport(viewportId);
+        const viewport = renderingEngine.getViewport(viewportId) as any;
         if (mounted) setStatus('DICOM 이미지 PixelData를 불러오는 중입니다.');
         await viewport.setStack([`wadouri:${window.location.origin}/sample-dicom/sample-xray.dcm`]);
         viewport.render();
