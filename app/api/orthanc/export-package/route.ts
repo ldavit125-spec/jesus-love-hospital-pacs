@@ -1,4 +1,4 @@
-import { orthancUrl, formatPatientName } from '../../../../lib/orthanc';
+import { fetchOrthanc, formatPatientName } from '../../../../lib/orthanc';
 import { resourceId, HierarchyError } from '../../../../lib/orthanc-hierarchy';
 import { createZipBuffer, type ZipEntry } from '../../../../lib/simple-zip';
 
@@ -11,7 +11,7 @@ type OrthancResource = {
 };
 
 async function fetchOrthancJson<T = OrthancResource>(path: string): Promise<T> {
-  const response = await fetch(`${orthancUrl}${path}`, { cache: 'no-store' });
+  const response = await fetchOrthanc(path, { cache: 'no-store' });
   if (!response.ok) {
     throw new HierarchyError(`Orthanc ${path} 조회 실패 (HTTP ${response.status})`, response.status === 404 ? 404 : 502);
   }
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
           const entryPath = `${safeDirName}/${filename}`;
 
           // Fetch raw DICOM bytes from Orthanc /instances/{id}/file
-          const fileResp = await fetch(`${orthancUrl}/instances/${resourceId(instId)}/file`, { cache: 'no-store' });
+          const fileResp = await fetchOrthanc(`/instances/${resourceId(instId)}/file`, { cache: 'no-store' });
           if (!fileResp.ok) {
             throw new Error(`Instance DICOM 파일 조회 실패 (ID: ${instId})`);
           }

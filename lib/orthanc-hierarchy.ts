@@ -1,4 +1,4 @@
-import { orthancUrl } from './orthanc';
+import { fetchOrthanc } from './orthanc';
 
 export type SeriesItem = {
   orthancSeriesId: string;
@@ -38,7 +38,7 @@ export function resourceId(id: string | null): string {
 }
 
 async function read(path: string): Promise<Resource> {
-  const response = await fetch(`${orthancUrl}${path}`, { cache: 'no-store' });
+  const response = await fetchOrthanc(path, { cache: 'no-store' });
   if (!response.ok) throw new HierarchyError(`Orthanc ${path}: HTTP ${response.status}`, response.status === 404 ? 404 : 502);
   return response.json();
 }

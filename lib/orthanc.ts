@@ -29,6 +29,34 @@ export type StudyListItem = {
 };
 
 export const orthancUrl = process.env.ORTHANC_URL ?? 'http://localhost:8042';
+const orthancUsername = process.env.ORTHANC_USERNAME;
+const orthancPassword = process.env.ORTHANC_PASSWORD;
+
+export function getOrthancHeaders(): HeadersInit {
+  const headers: Record<string, string> = {};
+  if (orthancUsername && orthancPassword) {
+    const credentials = Buffer.from(`${orthancUsername}:${orthancPassword}`).toString('base64');
+    headers['Authorization'] = `Basic ${credentials}`;
+  }
+  return headers;
+}
+
+export async function fetchOrthanc(urlOrPath: string, init?: RequestInit): Promise<Response> {
+  const fullUrl = urlOrPath.startsWith('http://') || urlOrPath.startsWith('https://')
+    ? urlOrPath
+    : `${orthancUrl}${urlOrPath.startsWith('/') ? '' : '/'}${urlOrPath}`;
+
+  const authHeaders = getOrthancHeaders();
+  const mergedHeaders = {
+    ...authHeaders,
+    ...(init?.headers as Record<string, string> | undefined),
+  };
+
+  return fetch(fullUrl, {
+    ...init,
+    headers: mergedHeaders,
+  });
+}
 
 // Portfolio display classification only. The source DICOM Study/Series tags remain untouched in Orthanc; this label must not be interpreted as a phase diagnosis.
 const HCC_004_STUDY_UID = '1.3.6.1.4.1.14519.5.2.1.1706.8374.181961287094258156999595854067';
@@ -56,17 +84,34 @@ function time(value: string) {
 }
 
 export async function getOrthancStudies(): Promise<StudyListItem[]> {
-  const ids = await fetch(`${orthancUrl}/studies`, { cache: 'no-store' }).then((response) => {
+  const ids = await fetchOrthanc('/studies', { cache: 'no-store' }).then((response) => {
+    if (!response.ok) {
+      throw new Error(`Orthanc /studies 조회 실패 (HTTP ${response.status})`);
+    }
     return response.json() as Promise<string[]>;
   });
   const studies = await Promise.all(
-    ids.map((id) => fetch(`${orthancUrl}/studies/${id}`, { cache: 'no-store' }).then((response) => response.json() as Promise<OrthancStudy>))
+    ids.map((id) =>
+      fetchOrthanc(`/studies/${id}`, { cache: 'no-store' }).then((response) => {
+        if (!response.ok) {
+          throw new Error(`Orthanc /studies/${id} 조회 실패 (HTTP ${response.status})`);
+        }
+        return response.json() as Promise<OrthancStudy>;
+      })
+    )
   );
 
   const results = await Promise.all(
     studies.map(async (study) => {
       const series = await Promise.all(
-        (study.Series ?? []).map((id) => fetch(`${orthancUrl}/series/${id}`, { cache: 'no-store' }).then((response) => response.json() as Promise<OrthancSeries>))
+        (study.Series ?? []).map((id) =>
+          fetchOrthanc(`/series/${id}`, { cache: 'no-store' }).then((response) => {
+            if (!response.ok) {
+              throw new Error(`Orthanc /series/${id} 조회 실패 (HTTP ${response.status})`);
+            }
+            return response.json() as Promise<OrthancSeries>;
+          })
+        )
       );
       const tags = study.MainDicomTags;
       const firstSeries = series[0];
@@ -76,7 +121,7 @@ export async function getOrthancStudies(): Promise<StudyListItem[]> {
       if (studyDescription === '-' || studyDescription.toUpperCase() === 'THORAX') {
         if (firstSeries?.Instances?.[0]) {
           try {
-            const instTagsResp = await fetch(`${orthancUrl}/instances/${firstSeries.Instances[0]}/simplified-tags`, { cache: 'no-store' });
+            const instTagsResp = await fetchOrthanc(`/instances/${firstSeries.Instances[0]}/simplified-tags`, { cache: 'no-store' });
             if (instTagsResp.ok) {
               const instTags = (await instTagsResp.json()) as Record<string, string>;
               const bodyPart = instTags.BodyPartExamined?.trim()?.toUpperCase();
