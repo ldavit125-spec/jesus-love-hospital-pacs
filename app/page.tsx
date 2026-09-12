@@ -145,6 +145,13 @@ export default function Home() {
   const [systemOpen, setSystemOpen] = useState(false);
   const [systemCheckedAt, setSystemCheckedAt] = useState<Date | null>(null);
 
+  // Export CSV / CD Package State
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isCdExportModalOpen, setIsCdExportModalOpen] = useState(false);
+  const [isPackaging, setIsPackaging] = useState(false);
+  const [packageError, setPackageError] = useState<string | null>(null);
+  const [packageSuccess, setPackageSuccess] = useState<string | null>(null);
+
   useEffect(() => {
     let midnightTimer: number;
     const updateDate = () => {
@@ -289,6 +296,125 @@ export default function Home() {
     setStatus('전체 상태');
     setFromDate('');
     setToDate('');
+  };
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    window.setTimeout(() => {
+      setToastMessage((cur) => (cur === msg ? null : cur));
+    }, 3000);
+  };
+
+  const handleExportCsv = () => {
+    if (!studies.length) {
+      showToast('내보낼 검사 목록이 없습니다.');
+      return;
+    }
+
+    const headers = [
+      '환자명',
+      'Patient ID',
+      '검사일',
+      '검사시간',
+      '검사번호(Accession Number)',
+      '검사명(Study Description)',
+      'Modality',
+      'StudyInstanceUID',
+      '영상 수(Image Count)',
+    ];
+
+    const rows = studies.map((s) => [
+      s.patientName,
+      s.patientId,
+      s.studyDate,
+      s.studyTime,
+      s.accessionNumber,
+      s.studyDescription,
+      s.modality,
+      s.studyInstanceUid,
+      String(s.imageCount),
+    ]);
+
+    const csvLines = [
+      headers.map((h) => `"${h.replace(/"/g, '""')}"`).join(','),
+      ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
+    ];
+
+    const bom = '\uFEFF';
+    const csvBlob = new Blob([bom + csvLines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const filename = `PACS_Study_List_${yyyy}${mm}${dd}.csv`;
+
+    const url = URL.createObjectURL(csvBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleOpenCdModal = () => {
+    if (selectedStudyIds.length === 0) {
+      showToast('먼저 내보낼 검사를 선택해주세요.');
+      return;
+    }
+    setPackageError(null);
+    setPackageSuccess(null);
+    setIsCdExportModalOpen(true);
+  };
+
+  const handleCreateDicomPackage = async () => {
+    if (selectedStudyIds.length === 0) {
+      setPackageError('선택된 Study가 없습니다.');
+      return;
+    }
+
+    setIsPackaging(true);
+    setPackageError(null);
+    setPackageSuccess(null);
+
+    try {
+      const response = await fetch('/api/orthanc/export-package', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studyIds: selectedStudyIds }),
+      });
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.error || `서버 응답 오류 (HTTP ${response.status})`);
+      }
+
+      const blob = await response.blob();
+      const disposition = response.headers.get('Content-Disposition');
+      let filename = `PACS_EXPORT_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.zip`;
+      if (disposition && disposition.includes('filename=')) {
+        const match = disposition.match(/filename="?([^";]+)"?/);
+        if (match && match[1]) {
+          filename = match[1];
+        }
+      }
+
+      const downloadUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(downloadUrl);
+
+      setPackageSuccess('DICOM 패키지가 생성되었습니다.');
+    } catch (err: any) {
+      setPackageError(err?.message || 'DICOM 패키지 생성에 실패했습니다.');
+    } finally {
+      setIsPackaging(false);
+    }
   };
 
   const openViewer = (
@@ -526,7 +652,16 @@ export default function Home() {
           </section>
 
           <section className="table-card">
-            <header className="table-tools"><div><h2>검사 목록</h2><span>총 <strong>{studies.length}</strong>건</span></div><div><button type="button">⇩ 목록 내보내기</button><button className="add" type="button">▣ CD 굽기</button></div></header>
+            <header className="table-tools">
+              <div>
+                <h2>검사 목록</h2>
+                <span>총 <strong>{studies.length}</strong>건</span>
+              </div>
+              <div>
+                <button type="button" onClick={handleExportCsv}>⇩ 목록 내보내기</button>
+                <button className="add" type="button" onClick={handleOpenCdModal}>▣ 환자용 CD/DVD 내보내기</button>
+              </div>
+            </header>
             <div className="table-scroll">
               <table>
                 <thead><tr><th><input aria-label="전체 선택" type="checkbox" checked={allStudiesSelected} onChange={(event) => toggleAllStudies(event.target.checked)} /></th><th>환자정보</th><th>검사일시</th><th>검사번호</th><th>검사명</th><th>장비</th><th>STUDY UID</th><th>영상수</th><th>판독상태</th><th>보기</th></tr></thead>
@@ -552,6 +687,13 @@ export default function Home() {
                     <td><strong>{s.imageCount}</strong><small>Images</small></td>
                     <td><span className="status"><i />미등록</span></td>
                     <td onClick={(e) => e.stopPropagation()}>
+                      <button
+                        className="detail-btn"
+                        type="button"
+                        onClick={() => setDrawerStudy(s)}
+                      >
+                        상세보기
+                      </button>{' '}
                       <button
                         className="viewer"
                         type="button"
@@ -582,6 +724,130 @@ export default function Home() {
               onOpenViewer={openViewer}
             />
           )}
+
+          {isCdExportModalOpen && (() => {
+            const selectedStudiesList = orthancStudies.filter((s) => selectedStudyIds.includes(s.orthancStudyId));
+            const uniquePatientNames = Array.from(new Set(selectedStudiesList.map((s) => s.patientName)));
+            const isMultiPatient = uniquePatientNames.length > 1;
+
+            return (
+              <div className="export-modal-overlay" onClick={() => !isPackaging && setIsCdExportModalOpen(false)}>
+                <div className="export-modal-card" onClick={(e) => e.stopPropagation()}>
+                  <div className="export-modal-header">
+                    <h3>
+                      <span>▣</span>
+                      환자용 CD/DVD 미디어 내보내기
+                    </h3>
+                    <button
+                      type="button"
+                      className="close-btn"
+                      disabled={isPackaging}
+                      onClick={() => setIsCdExportModalOpen(false)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="export-modal-body">
+                    <div className="export-notice-banner">
+                      <strong>안내사항</strong>
+                      <p>
+                        본 기능은 환자용 DICOM 미디어 패키지를 생성합니다.<br />
+                        실제 CD/DVD 기록은 전용 미디어 기록 프로그램 또는 운영체제의 디스크 기록 기능을 사용합니다.
+                      </p>
+                    </div>
+
+                    {isMultiPatient && (
+                      <div className="multi-patient-warning">
+                        <span>⚠️</span>
+                        <span>
+                          서로 다른 환자 <strong>{uniquePatientNames.length}명</strong>의 검사가 선택되었습니다. 환자별 구분에 주의하시기 바랍니다.
+                        </span>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
+                        내보낼 검사 목록 (총 {selectedStudiesList.length}건)
+                      </span>
+                    </div>
+
+                    <div className="export-studies-table-wrap">
+                      <table className="export-studies-table">
+                        <thead>
+                          <tr>
+                            <th>환자명</th>
+                            <th>Patient ID</th>
+                            <th>검사명</th>
+                            <th>검사일</th>
+                            <th>장비</th>
+                            <th style={{ textAlign: 'right' }}>영상수</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedStudiesList.map((st) => (
+                            <tr key={st.orthancStudyId}>
+                              <td><strong>{st.patientName}</strong></td>
+                              <td>{st.patientId}</td>
+                              <td>{st.studyDescription}</td>
+                              <td>{st.studyDate}</td>
+                              <td><span className="modality">{st.modality}</span></td>
+                              <td style={{ textAlign: 'right' }}>{st.imageCount}장</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {packageSuccess && (
+                      <div className="export-status-message success">
+                        ✓ {packageSuccess}
+                      </div>
+                    )}
+                    {packageError && (
+                      <div className="export-status-message error">
+                        ✕ {packageError}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="export-modal-footer">
+                    <button
+                      type="button"
+                      className="cancel-btn"
+                      disabled={isPackaging}
+                      onClick={() => setIsCdExportModalOpen(false)}
+                    >
+                      닫기
+                    </button>
+                    <button
+                      type="button"
+                      className="action-btn"
+                      disabled={isPackaging || selectedStudiesList.length === 0}
+                      onClick={handleCreateDicomPackage}
+                    >
+                      {isPackaging ? (
+                        <>
+                          <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⏳</span>
+                          패키지 생성 중...
+                        </>
+                      ) : (
+                        'DICOM 패키지 생성'
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {toastMessage && (
+            <div className="toast" style={{ zIndex: 100000 }}>
+              <i>i</i>
+              <span>{toastMessage}</span>
+            </div>
+          )}
+
           <p className="prototype">본 화면은 UI 프로토타입이며 실제 의료 진단 목적으로 사용할 수 없습니다.</p></>}
         </main>
       </div>
