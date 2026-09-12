@@ -1,5 +1,13 @@
 'use client';
 
+import {
+  getCurrentUser,
+  signInWithEmailPassword,
+  signOut as authSignOut,
+  roleDisplayLabel,
+  type UserProfile,
+} from '../lib/supabase/authService';
+
 import { useEffect, useMemo, useState } from 'react';
 
 import { buildViewerUrl, type StudyListItem } from '../lib/orthanc';
@@ -113,6 +121,14 @@ function matchesEquipment(study: StudyListItem, category: ModalityCategory, equi
 }
 
 export default function Home() {
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
+  const [loginEmail, setLoginEmail] = useState<string>('admin1');
+  const [loginPassword, setLoginPassword] = useState<string>('');
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+
   const [query, setQuery] = useState('');
   const [isStudyListOpen, setIsStudyListOpen] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<ModalityCategory>('ALL');
@@ -143,6 +159,63 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    setIsAuthChecking(true);
+    getCurrentUser()
+      .then((user) => {
+        setCurrentUser(user);
+      })
+      .catch((err) => {
+        console.error('[PACS Auth] 세션 확인 실패:', err);
+        setCurrentUser(null);
+      })
+      .finally(() => {
+        setIsAuthChecking(false);
+      });
+  }, []);
+
+  const handleLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setLoginError(null);
+
+    if (!loginEmail.trim()) {
+      setLoginError('아이디 또는 이메일을 입력해 주세요.');
+      return;
+    }
+    if (!loginPassword) {
+      setLoginError('비밀번호를 입력해 주세요.');
+      return;
+    }
+
+    setIsLoggingIn(true);
+    try {
+      const { profile, error } = await signInWithEmailPassword(loginEmail, loginPassword);
+      if (error || !profile) {
+        setLoginError(error?.message || '로그인에 실패했습니다. 계정 정보를 확인해주세요.');
+        return;
+      }
+      setCurrentUser(profile);
+      setLoginPassword('');
+      setLoginError(null);
+    } catch (err: any) {
+      setLoginError(err?.message || '로그인 처리 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await authSignOut();
+    } catch (err) {
+      console.error('로그아웃 오류:', err);
+    } finally {
+      setCurrentUser(null);
+      setLoginPassword('');
+    }
+  };
+
+  useEffect(() => {
+    if (!currentUser) return;
     fetch('/api/orthanc/studies')
       .then(async (response) => {
         const result = await response.json() as { studies: StudyListItem[]; error?: string };
@@ -150,7 +223,7 @@ export default function Home() {
         setOrthancStudies(result.studies);
       })
       .catch((error: unknown) => setOrthancError(error instanceof Error ? error.message : 'Orthanc 연결에 실패했습니다.'));
-  }, []);
+  }, [currentUser]);
 
   const formattedLocalDate = localDate ? formatLocalDate(localDate) : null;
 
@@ -237,6 +310,105 @@ export default function Home() {
     window.open(url, '_blank');
   };
 
+  if (isAuthChecking) {
+    return (
+      <div className="login-screen-wrapper">
+        <div style={{ textAlign: 'center', color: '#ffffff' }}>
+          <div className="login-logo-wrap" style={{ width: '64px', height: '64px', marginBottom: '16px' }}>
+            <img src="/jesus-love-hospital-logo.png" alt="예수사랑병원 로고" />
+          </div>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, margin: '0 0 8px' }}>예수사랑병원 PACS</h2>
+          <p style={{ fontSize: '13px', color: '#94a3b8' }}>보안 인증 세션을 확인하는 중입니다...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="login-screen-wrapper">
+        <div className="login-card">
+          <div className="login-card-header">
+            <div className="login-logo-wrap">
+              <img src="/jesus-love-hospital-logo.png" alt="예수사랑병원 로고" />
+            </div>
+            <h2>예수사랑병원</h2>
+            <p>JESUS LOVE HOSPITAL PACS</p>
+            <span className="login-system-tag">의료영상저장전송시스템 (PACS)</span>
+          </div>
+
+          <form className="login-form" onSubmit={handleLogin}>
+            {loginError && (
+              <div className="login-error-box" role="alert">
+                <span>⚠ {loginError}</span>
+              </div>
+            )}
+
+            <div className="login-field">
+              <label htmlFor="login-email">아이디 또는 이메일</label>
+              <div className="login-input-wrap">
+                <input
+                  id="login-email"
+                  type="text"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  placeholder="admin1 또는 admin1@jesuslove.hospital"
+                  disabled={isLoggingIn}
+                  autoFocus
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="login-field">
+              <label htmlFor="login-password">비밀번호</label>
+              <div className="login-input-wrap">
+                <input
+                  id="login-password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="비밀번호를 입력하세요"
+                  disabled={isLoggingIn}
+                  required
+                />
+                <button
+                  type="button"
+                  className="login-toggle-pw"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1}
+                  aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 표시'}
+                >
+                  {showPassword ? '🙈' : '👁'}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="login-submit-btn"
+              disabled={isLoggingIn}
+            >
+              {isLoggingIn ? '로그인 인증 중...' : '시스템 로그인'}
+            </button>
+
+            <div className="login-demo-notice">
+              <strong>계정 안내 (Supabase Auth 실제 세션)</strong>
+              · 관리자: <code>admin1</code> (또는 <code>admin1@jesuslove.hospital</code>) / <code>admin01</code><br />
+              · 방사선사 (이지훈): <code>radiographer@jesuslove.hospital</code><br />
+              · 영상의학과 전문의 (장태성): <code>radiologist@jesuslove.hospital</code><br />
+              <small style={{ color: '#64748b' }}>* 허용 권한: rt, radiologist, admin (그 외 접근 불가)</small>
+            </div>
+
+            <div className="login-footer-security">
+              <span>🔒 256-bit SSL 암호화 보안 세션 연동</span>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -300,7 +472,28 @@ export default function Home() {
         <header className="topbar">
           <div className="system-title"><strong>PACS</strong><i />의료영상정보시스템</div>
           <label className="global-search"><b>⌕</b><input aria-label="통합 검색" placeholder="환자명, 환자번호, 검사번호 검색" value={query} onChange={(e) => setQuery(e.target.value)} /><kbd>⌘ K</kbd></label>
-          <div className="user"><button aria-label="알림" type="button">♧<i /></button><span className="avatar">관</span><div><strong>관리자</strong><small>영상의학과</small></div><b>⌄</b></div>
+          <div className="user">
+            <div className="user-profile-group">
+              <span className="avatar">{currentUser.initial}</span>
+              <div className="user-info">
+                <strong>{currentUser.name}</strong>
+                <small>{roleDisplayLabel(currentUser.role)} · {currentUser.department}</small>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="logout-btn"
+              onClick={handleSignOut}
+              title="PACS 시스템 로그아웃"
+            >
+              <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              <span>로그아웃</span>
+            </button>
+          </div>
         </header>
 
         <main className="content">

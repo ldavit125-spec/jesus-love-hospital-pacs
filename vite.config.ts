@@ -45,6 +45,7 @@ export default defineConfig(async () => {
   const { cloudflare } = await import('@cloudflare/vite-plugin');
 
   return {
+    envPrefix: ['VITE_', 'NEXT_PUBLIC_SUPABASE_'],
     css: { postcss: { plugins: [tailwindcss()] } },
     optimizeDeps: {
       exclude: [
