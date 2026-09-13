@@ -160,56 +160,7 @@ export default function DicomViewer({ instanceIds, metadata }: DicomViewerProps)
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
   const [currentSlice, setCurrentSlice] = useState<number>(0);
 
-  // Floating movable toolbar state
-  const toolbarRef = useRef<HTMLDivElement>(null);
-  const [toolbarPos, setToolbarPos] = useState<{ x: number; y: number } | null>(null);
-  const dragRef = useRef<{ isDragging: boolean; startX: number; startY: number; initX: number; initY: number }>({
-    isDragging: false,
-    startX: 0,
-    startY: 0,
-    initX: 0,
-    initY: 0,
-  });
 
-  const handleDragStart = (e: React.MouseEvent) => {
-    // Only drag when target is not a button or inside a button
-    if ((e.target as HTMLElement).closest('button')) return;
-    const toolbar = toolbarRef.current;
-    if (!toolbar) return;
-
-    const parent = toolbar.parentElement;
-    const parentRect = parent ? parent.getBoundingClientRect() : { left: 0, top: 0 };
-    const rect = toolbar.getBoundingClientRect();
-    const currentX = toolbarPos ? toolbarPos.x : rect.left - parentRect.left;
-    const currentY = toolbarPos ? toolbarPos.y : rect.top - parentRect.top;
-
-    dragRef.current = {
-      isDragging: true,
-      startX: e.clientX,
-      startY: e.clientY,
-      initX: currentX,
-      initY: currentY,
-    };
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      if (!dragRef.current.isDragging) return;
-      const dx = moveEvent.clientX - dragRef.current.startX;
-      const dy = moveEvent.clientY - dragRef.current.startY;
-      
-      const newX = Math.max(8, dragRef.current.initX + dx);
-      const newY = Math.max(8, dragRef.current.initY + dy);
-      setToolbarPos({ x: newX, y: newY });
-    };
-
-    const handleMouseUp = () => {
-      dragRef.current.isDragging = false;
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-  };
 
   useEffect(() => {
     let mounted = true;
@@ -391,23 +342,9 @@ export default function DicomViewer({ instanceIds, metadata }: DicomViewerProps)
   return (
     <section className="viewer-canvas dicom-canvas" aria-label="DICOM Viewer Canvas">
       <div
-        ref={toolbarRef}
         className="viewer-toolbar"
         aria-label="Viewer 도구"
-        onMouseDown={handleDragStart}
-        style={
-          toolbarPos
-            ? {
-                left: `${toolbarPos.x}px`,
-                top: `${toolbarPos.y}px`,
-                transform: 'none',
-              }
-            : undefined
-        }
       >
-        <div className="viewer-toolbar-drag-handle" title="드래그하여 원하는 위치로 이동">
-          ⠿
-        </div>
         <button
           className={activeTool === 'zoom' ? 'active' : ''}
           type="button"

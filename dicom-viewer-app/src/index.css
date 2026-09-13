@@ -109,17 +109,18 @@ body {
 
 .toolbar-overlay {
   position: absolute;
-  top: 16px;
+  top: 50%;
   left: 16px;
+  transform: translateY(-50%);
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 6px;
+  gap: 8px;
   width: 120px;
   background: rgba(13, 24, 36, 0.85);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  padding: 8px;
+  padding: 10px 8px;
   border-radius: 8px;
   border: 1px solid rgba(66, 87, 108, 0.5);
   z-index: 10;
@@ -128,31 +129,18 @@ body {
 }
 
 .viewer-toolbar-drag-handle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 14px;
-  color: #64748b;
-  font-size: 14px;
-  cursor: grab;
-  letter-spacing: 2px;
-  transition: color 0.15s;
-}
-
-.viewer-toolbar-drag-handle:hover {
-  color: #38bdf8;
+  display: none;
 }
 
 .tool-btn {
   background: rgba(22, 36, 52, 0.9);
   border: 1px solid #42576c;
   color: #cbd8e4;
-  height: 32px;
+  height: 34px;
   width: 100%;
   padding: 0 8px;
   border-radius: 6px;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 650;
   cursor: pointer;
   display: flex;
@@ -222,7 +210,7 @@ body {
 }
 
 .info-overlay.top-left {
-  top: 240px;
+  top: 16px;
   left: 16px;
   max-width: 280px;
 }
@@ -283,7 +271,7 @@ body {
 }
 
 .demo-pacs-overlay__top-left {
-  top: 240px;
+  top: 16px;
   left: 16px;
   max-width: 280px;
 }
