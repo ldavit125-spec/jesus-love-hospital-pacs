@@ -274,7 +274,7 @@ export default function DicomViewer({ instanceIds, metadata }: DicomViewerProps)
 
         if (mounted) {
           setIsLoaded(true);
-          setStatus(`렌더링 완료 (${imageIds.length}건) · 마우스 휠로 슬라이스 이동, 드래그로 조작 가능`);
+          setStatus(`렌더링 완료 (${imageIds.length}건)`);
         }
       } catch (loadError) {
         console.error('Cornerstone viewer load error:', loadError);
@@ -410,8 +410,6 @@ export default function DicomViewer({ instanceIds, metadata }: DicomViewerProps)
         </>
       )}
 
-      {/* When not loaded yet, show initial status in bottom-left */}
-      {!isLoaded && status && <p className="viewer-status">{status}</p>}
       {error && (
         <div className="viewer-error">
           <strong>DICOM 로딩 오류</strong>
