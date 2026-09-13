@@ -113,6 +113,7 @@ body {
   left: 50%;
   transform: translateX(-50%);
   display: flex;
+  align-items: center;
   gap: 0.5rem;
   background: rgba(17, 24, 39, 0.85);
   backdrop-filter: blur(8px);
@@ -121,6 +122,29 @@ body {
   border: 1px solid rgba(75, 85, 99, 0.6);
   z-index: 10;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  cursor: grab;
+  user-select: none;
+}
+
+.toolbar-overlay:active {
+  cursor: grabbing;
+}
+
+.viewer-toolbar-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 32px;
+  color: #64748b;
+  font-size: 16px;
+  cursor: grab;
+  letter-spacing: -1px;
+  transition: color 0.15s;
+}
+
+.viewer-toolbar-drag-handle:hover {
+  color: #38bdf8;
 }
 
 .tool-btn {
