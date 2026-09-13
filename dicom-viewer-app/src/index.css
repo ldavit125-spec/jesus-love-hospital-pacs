@@ -109,37 +109,34 @@ body {
 
 .toolbar-overlay {
   position: absolute;
-  top: 1rem;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 16px;
+  left: 16px;
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: rgba(17, 24, 39, 0.85);
-  backdrop-filter: blur(8px);
-  padding: 0.4rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  width: 120px;
+  background: rgba(13, 24, 36, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 8px;
   border-radius: 8px;
-  border: 1px solid rgba(75, 85, 99, 0.6);
+  border: 1px solid rgba(66, 87, 108, 0.5);
   z-index: 10;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-  cursor: grab;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.55);
   user-select: none;
 }
 
-.toolbar-overlay:active {
-  cursor: grabbing;
-}
-
 .viewer-toolbar-drag-handle {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 32px;
+  width: 100%;
+  height: 14px;
   color: #64748b;
-  font-size: 16px;
+  font-size: 14px;
   cursor: grab;
-  letter-spacing: -1px;
+  letter-spacing: 2px;
   transition: color 0.15s;
 }
 
@@ -148,84 +145,106 @@ body {
 }
 
 .tool-btn {
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-muted);
-  padding: 0.5rem 0.85rem;
+  background: rgba(22, 36, 52, 0.9);
+  border: 1px solid #42576c;
+  color: #cbd8e4;
+  height: 32px;
+  width: 100%;
+  padding: 0 8px;
   border-radius: 6px;
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: 11.5px;
+  font-weight: 650;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  justify-content: center;
+  gap: 6px;
   transition: all 0.15s ease;
 }
 
 .tool-btn:hover {
-  background: var(--bg-card);
-  color: var(--text-main);
+  background: rgba(30, 58, 95, 0.9);
+  color: #ffffff;
+  border-color: #38bdf8;
 }
 
 .tool-btn.active {
-  background: var(--primary);
+  background: #1769c5;
   color: #ffffff;
-  border-color: #60a5fa;
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+  border-color: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
 }
 
-.tool-btn.reset-btn:hover {
-  background: rgba(239, 68, 68, 0.2);
-  color: #fca5a5;
+.tool-btn.reset-btn {
   border-color: rgba(239, 68, 68, 0.4);
 }
 
+.tool-btn.reset-btn:hover {
+  background: rgba(185, 28, 28, 0.8);
+  color: #ffffff;
+  border-color: #ef4444;
+}
+
 .stack-indicator-badge {
-  background: #1e293b;
-  border: 1px solid #334155;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(56, 189, 248, 0.35);
   color: #38bdf8;
-  padding: 0.5rem 0.85rem;
-  border-radius: 6px;
-  font-size: 0.875rem;
+  height: 28px;
+  width: 100%;
+  padding: 0 6px;
+  border-radius: 5px;
+  font-size: 11px;
   font-weight: 700;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  font-family: monospace;
+  justify-content: center;
+  gap: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .info-overlay {
   position: absolute;
-  padding: 1rem;
-  font-size: 0.825rem;
-  font-family: monospace;
-  color: #93c5fd;
-  text-shadow: 0 1px 2px #000000;
+  padding: 10px 14px;
+  font-size: 11.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #38bdf8;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   pointer-events: none;
   z-index: 5;
-  line-height: 1.4;
+  background: rgba(13, 24, 36, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
 }
 
 .info-overlay.top-left {
-  top: 0;
-  left: 0;
+  top: 240px;
+  left: 16px;
+  max-width: 280px;
 }
 
 .info-overlay.top-right {
-  top: 0;
-  right: 0;
+  top: 16px;
+  right: 16px;
   text-align: right;
+  max-width: 320px;
 }
 
 .info-overlay.bottom-left {
-  bottom: 0;
-  left: 0;
+  bottom: 16px;
+  left: 16px;
+  max-width: 340px;
 }
 
 .info-overlay.bottom-right {
-  bottom: 0;
-  right: 0;
+  bottom: 16px;
+  right: 16px;
   text-align: right;
+  max-width: 340px;
 }
 
 .demo-pacs-overlay {
@@ -234,64 +253,82 @@ body {
   z-index: 6;
   color: #f8fafc;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.875rem;
+  font-size: 11.5px;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.45;
   pointer-events: none;
-  text-shadow: 0 1px 3px #000000, 0 0 6px #000000;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 .demo-pacs-overlay__corner {
   position: absolute;
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  gap: 2px;
+  padding: 10px 14px;
+  background: rgba(13, 24, 36, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  color: #38bdf8;
 }
 
 .demo-pacs-overlay__corner strong {
   color: #ffffff;
-  font-size: 1rem;
+  font-size: 13.5px;
+  font-weight: 700;
+  margin-bottom: 2px;
 }
 
 .demo-pacs-overlay__top-left {
-  top: 1rem;
-  left: 1rem;
+  top: 240px;
+  left: 16px;
+  max-width: 280px;
 }
 
 .demo-pacs-overlay__top-right {
-  top: 7rem;
-  right: 1rem;
+  top: 16px;
+  right: 16px;
   text-align: right;
+  max-width: 320px;
 }
 
 .demo-pacs-overlay__bottom-left {
-  bottom: 1rem;
-  left: 1rem;
+  bottom: 16px;
+  left: 16px;
+  max-width: 340px;
 }
 
 .demo-pacs-overlay__bottom-right {
-  right: 1rem;
-  bottom: 1rem;
+  right: 16px;
+  bottom: 16px;
   text-align: right;
+  max-width: 340px;
 }
 
 .demo-pacs-overlay__top-center {
-  top: 4.5rem;
+  top: 16px;
   left: 50%;
   transform: translateX(-50%);
   text-align: center;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
 }
 
 .demo-pacs-overlay__badge {
   display: inline-block;
-  font-size: 0.725rem;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: #38bdf8;
-  background: rgba(15, 23, 42, 0.75);
+  background: rgba(15, 23, 42, 0.85);
   border: 1px solid rgba(56, 189, 248, 0.4);
-  padding: 0.15rem 0.55rem;
-  border-radius: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
 }
 
 .dicom-details-panel {

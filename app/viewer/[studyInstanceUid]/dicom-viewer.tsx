@@ -457,6 +457,7 @@ export default function DicomViewer({ instanceIds, metadata }: DicomViewerProps)
           <div className="viewer-overlay bottom-left">
             <div>TOOL: {activeTool.toUpperCase()}</div>
             <div>SCROLL: MOUSE WHEEL</div>
+            {status && <div className="viewer-status-text">{status}</div>}
           </div>
           <div className="viewer-overlay bottom-right">
             <div title={metadata.studyInstanceUid}>
@@ -472,7 +473,8 @@ export default function DicomViewer({ instanceIds, metadata }: DicomViewerProps)
         </>
       )}
 
-      {status && <p className="viewer-status">{status}</p>}
+      {/* When not loaded yet, show initial status in bottom-left */}
+      {!isLoaded && status && <p className="viewer-status">{status}</p>}
       {error && (
         <div className="viewer-error">
           <strong>DICOM 로딩 오류</strong>
